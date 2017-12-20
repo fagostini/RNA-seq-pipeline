@@ -1,0 +1,43 @@
+# Import data from config file
+configfile: 'config.yaml'
+
+# Get sample name
+# SAMPLE=config['sample_id']
+
+rule all:
+    input:
+        "ENCFF000DMU/mapped/Aligned.sortedByCoord.out.bam.bai",
+
+rule remove_rRNA_tRNA:
+    input:
+        "ENCFF000DMU_trimmed.fq.gz"
+    output:
+        "ENCFF000DMU/rRNA_tRNA_removed/ENCFF000DMU.fq.gz"
+    log:
+        "ENCFF000DMU/logs/rRNA_tRNA_removal.log"
+    params:
+        bt2_index=config['bt2_rRNA_tRNA_index'],
+        threads=8
+    shell:
+        "bowtie2 -p {params.threads} --un-gz {output} -x {params.bt2_index} -U {input} > /dev/null 2> {log}"
+
+rule map_star:
+    input:
+        "ENCFF000DMU/rRNA_tRNA_removed/ENCFF000DMU.fq.gz"
+    output:
+        "ENCFF000DMU/mapped/"
+    params:
+        star_index=config['star_index'],
+        threads=8
+    shell:
+        "STAR --genomeDir {params.star_index} --readFilesIn {input} --readFilesCommand zcat --outFileNamePrefix {output} --runThreadN {params.threads} --genomeLoad NoSharedMemory --twopassMode Basic --outFilterMultimapNmax 1 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1  --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outFilterType BySJout --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000"
+
+rule sambamba_index:
+    input:
+        "ENCFF000DMU/mapped/"
+    output:
+        "ENCFF000DMU/mapped/Aligned.sortedByCoord.out.bam.bai"
+    params:
+        threads=8
+    shell:
+        "sambamba index -t {params.threads} {input}Aligned.sortedByCoord.out.bam {output}"
