@@ -1,13 +1,6 @@
-# IMPORT Python libraries
-
-shell.executable("/bin/bash")
-shell.prefix("source ~/.bashrc; ")
-from os.path import join,basename
-from glob import glob
-
 # Import config file & parameters
 
-configfile: 'config.yaml'
+configfile: 'config_charlotte.yaml'
 
 # Import paths from config file
 
@@ -18,12 +11,13 @@ rule all:
     input:
         expand("fastqc/{sample}_fastqc.zip", sample=config["samples"]),
         expand("fastqc/{sample}_fastqc.html", sample=config["samples"]),
-        expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"])
-
+        expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"]),
+        expand("mapped/{sample}.", sample=config["samples"]),
+        expand("mapped/{sample}.Aligned.sortedByCoord.out.bam.bai", sample=config["samples"])
 
 rule fastqc:
     input:
-        fasta=expand(DATAPATH + "{sample}.fq", sample=config["samples"])
+        fasta=expand(DATAPATH + "{sample}.fq.gz", sample=config["samples"])
     output:
         "fastqc/{sample}_fastqc.zip",
         "fastqc/{sample}_fastqc.html"
@@ -35,7 +29,7 @@ rule fastqc:
 
 rule trimGalore:
     input:
-        fasta=expand(DATAPATH + "{sample}.fq", sample=config["samples"])
+        fasta=expand(DATAPATH + "{sample}.fq.gz", sample=config["samples"])
     output:
         "trim_galore/{sample}_trimmed.fq.gz",
     params:
@@ -47,25 +41,13 @@ rule trimGalore:
 # ——————————————————
 # Nobby begin
 
-
-
-# Import data from config file
-configfile: 'config.yaml'
-
-# Get sample name
-# SAMPLE=config['sample_id']
-
-rule all:
-    input:
-        "ENCFF000DMU/mapped/Aligned.sortedByCoord.out.bam.bai",
-
 rule remove_rRNA_tRNA:
     input:
-        "ENCFF000DMU_trimmed.fq.gz"
+        expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"])
     output:
-        "ENCFF000DMU/rRNA_tRNA_removed/ENCFF000DMU.fq.gz"
+        expand("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz", sample=config["samples"])
     log:
-        "ENCFF000DMU/logs/rRNA_tRNA_removal.log"
+        expand("logs/{sample}.rRNA_tRNA_removal.log", sample=config["samples"])
     params:
         bt2_index=config['bt2_rRNA_tRNA_index'],
         threads=8
@@ -74,21 +56,21 @@ rule remove_rRNA_tRNA:
 
 rule map_star:
     input:
-        "ENCFF000DMU/rRNA_tRNA_removed/ENCFF000DMU.fq.gz"
+        expand("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz", sample=config["samples"])
     output:
-        "ENCFF000DMU/mapped/"
+        expand("mapped/{sample}.", sample=config["samples"])
     params:
         star_index=config['star_index'],
         threads=8
     shell:
-        "STAR --genomeDir {params.star_index} --readFilesIn {input} --readFilesCommand zcat --outFileNamePrefix {output} --runThreadN {params.threads} --genomeLoad NoSharedMemory --twopassMode Basic --outFilterMultimapNmax 1 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1  --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outFilterType BySJout --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000"
+        "STAR --genomeDir {params.star_index} --readFilesIn {input} --readFilesCommand zcat --outFileNamePrefix {output} --runThreadN {params.threads} --genomeLoad NoSharedMemory --outFilterMultimapNmax 1 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1  --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outFilterType BySJout --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000"
 
 rule sambamba_index:
     input:
-        "ENCFF000DMU/mapped/"
+        expand("mapped/{sample}.", sample=config["samples"])
     output:
-        "ENCFF000DMU/mapped/Aligned.sortedByCoord.out.bam.bai"
+        expand("mapped/{sample}.Aligned.sortedByCoord.out.bam.bai", sample=config["samples"])
     params:
         threads=8
     shell:
-        "sambamba index -t {params.threads} {input}Aligned.sortedByCoord.out.bam {output}"
+        "sambamba index -t {params.threads} {input}Aligned.sortedByCoord.out.bam"
