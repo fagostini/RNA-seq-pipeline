@@ -1,0 +1,9 @@
+# Define pipeline paths
+datapath: /home/camp/capitac/working/charlotte/rnaSeq_pipeline/
+# Define samples
+samples:
+    m62ahek_ready2map: m62ahek_ready2map
+
+# Define paramaters
+trim_galore_params:
+    True

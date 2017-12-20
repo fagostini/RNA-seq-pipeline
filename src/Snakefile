@@ -1,3 +1,54 @@
+# IMPORT Python libraries
+
+shell.executable("/bin/bash")
+shell.prefix("source ~/.bashrc; ")
+from os.path import join,basename
+from glob import glob
+
+# Import config file & parameters
+
+configfile: 'config.yaml'
+
+# Import paths from config file
+
+DATAPATH=config['datapath']
+
+
+rule all:
+    input:
+        expand("fastqc/{sample}_fastqc.zip", sample=config["samples"]),
+        expand("fastqc/{sample}_fastqc.html", sample=config["samples"]),
+        expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"])
+
+
+rule fastqc:
+    input:
+        fasta=expand(DATAPATH + "{sample}.fq", sample=config["samples"])
+    output:
+        "fastqc/{sample}_fastqc.zip",
+        "fastqc/{sample}_fastqc.html"
+    threads:
+        4
+    shell:
+        "fastqc -t {threads} {input.fasta} --outdir fastqc"
+
+
+rule trimGalore:
+    input:
+        fasta=expand(DATAPATH + "{sample}.fq", sample=config["samples"])
+    output:
+        "trim_galore/{sample}_trimmed.fq.gz",
+    params:
+        basic = "-q 20 --gzip --length 16 -o trim_galore --fastqc",
+        adaptor = "" if config["trim_galore_params"] else "-a "+config["trim_galore_params"]
+    shell:
+        "trim_galore {params.basic} {params.adaptor} {input.fasta}"
+
+# ——————————————————
+# Nobby begin
+
+
+
 # Import data from config file
 configfile: 'config.yaml'
 
