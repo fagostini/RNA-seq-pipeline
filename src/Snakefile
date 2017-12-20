@@ -9,10 +9,10 @@ DATAPATH=config['datapath']
 
 rule all:
     input:
-        expand("fastqc/{sample}_fastqc.zip", sample=config["samples"]),
-        expand("fastqc/{sample}_fastqc.html", sample=config["samples"]),
-        expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"]),
-        expand("mapped/{sample}.", sample=config["samples"]),
+        # expand("fastqc/{sample}_fastqc.zip", sample=config["samples"]),
+        # expand("fastqc/{sample}_fastqc.html", sample=config["samples"]),
+        # expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"]),
+        # expand("mapped/{sample}.", sample=config["samples"]),
         expand("mapped/{sample}.Aligned.sortedByCoord.out.bam.bai", sample=config["samples"])
 
 rule fastqc:
@@ -58,19 +58,20 @@ rule map_star:
     input:
         expand("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz", sample=config["samples"])
     output:
-        expand("mapped/{sample}.", sample=config["samples"])
+        bam = expand("mapped/{sample}.Aligned.sortedByCoord.out.bam", sample=config["samples"])
     params:
         star_index=config['star_index'],
+        prefix = expand("mapped/{sample}.", sample=config["samples"]),
         threads=8
     shell:
-        "STAR --genomeDir {params.star_index} --readFilesIn {input} --readFilesCommand zcat --outFileNamePrefix {output} --runThreadN {params.threads} --genomeLoad NoSharedMemory --outFilterMultimapNmax 1 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1  --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outFilterType BySJout --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000"
+        "STAR --genomeDir {params.star_index} --readFilesIn {input} --readFilesCommand zcat --outFileNamePrefix {params.prefix} --runThreadN {params.threads} --genomeLoad NoSharedMemory --outFilterMultimapNmax 1 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1  --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outFilterType BySJout --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000"
 
 rule sambamba_index:
     input:
-        expand("mapped/{sample}.", sample=config["samples"])
+        expand("mapped/{sample}.Aligned.sortedByCoord.out.bam", sample=config["samples"])
     output:
         expand("mapped/{sample}.Aligned.sortedByCoord.out.bam.bai", sample=config["samples"])
     params:
         threads=8
     shell:
-        "sambamba index -t {params.threads} {input}Aligned.sortedByCoord.out.bam"
+        "sambamba index -t {params.threads} {input} {output}"
