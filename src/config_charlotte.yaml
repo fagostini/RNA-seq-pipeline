@@ -1,19 +1,20 @@
 # Define pipeline paths
 # datapath: /home/camp/capitac/working/charlotte/rnaSeq_pipeline/
-datapath: /home/camp/chakraa2/working/nobby/projects/snakemake/
+datapath: /home/camp/chakraa2/working/nobby/projects/snakemake/data/
 
 # Define samples
 # samples:
 #     m62ahek_ready2map: m62ahek_ready2map
 
 samples:
-    ENCFF000DMU,
-    ENCFF000DMU2
+    - ENCFF000DMU
+    - ENCFF000DMU2
 
 # Indices
 bt2_rRNA_tRNA_index: /home/camp/chakraa2/working/nobby/genomes/index/bt2_rRNA_tRNA/rRNA_tRNA
 star_index: /home/camp/chakraa2/working/nobby/genomes/index/STAR_GRCh38_Gencode25
+chr_lengths: /home/camp/chakraa2/working/nobby/genomes/sequences/GRCh38.primary_assembly.genome.fa.fai
 
 # Define paramaters
-trim_galore_params:
-    True
+trim_galore_params: True
+seq_type: RNA # RNA or CLIP
