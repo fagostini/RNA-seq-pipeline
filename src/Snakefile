@@ -1,127 +1,219 @@
-# Import config file & parameters
+from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
 
-configfile: 'config_charlotte.yaml'
+FTP = FTPRemoteProvider()
+
+# Import config file & parameters
+configfile: 'config.yaml'
 
 # Import paths from config file
-
 DATAPATH=config['datapath']
 
 rule all:
-    input:
-        expand("results/fastqc/{sample}_fastqc.zip", sample=config["samples"]),
-        expand("results/fastqc/{sample}_fastqc.html", sample=config["samples"]),
-        # expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"]),
-        # expand("mapped/{sample}.", sample=config["samples"]),
-        expand("results/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai", sample=config["samples"]),
-        expand("results/coverage/{sample}_plus.bigwig", sample=config["samples"]),
-        expand("results/coverage/{sample}_minus.bigwig", sample=config["samples"])
+	input:
+        # "annotation/gencode.gff3.gz"
+        # "annotation/gencode.gtf.gz"
+		expand("fastqc/{sample}_fastqc.html", sample=config["samples"]),
+		expand("mapped/{sample}.Aligned.sortedByCoord.out.bam.bai", sample=config["samples"]),
+		expand("picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai", sample=config["samples"]),
+		expand("qorts/{sample}.firstStrand.counts", sample=config["samples"]),
+		expand("qorts/{sample}.secondStrand.counts", sample=config["samples"])
+
+# rule get_annotation:
+#     input:
+#         gff=FTP.remote("ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_27/gencode.v27.annotation.gff3.gz", keep_local=True),
+#         gtf=FTP.remote("ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_27/gencode.v27.annotation.gtf.gz", keep_local=True)
+#     output:
+#         gff="annotation/gencode.gff3.gz"
+#         gtf="annotation/gencode.gtf.gz"
+#     run:
+#         shell("mv {input.gff} {output.gff}")
+#         shell("mv {input.gtf} {output.gtf}")
+
+# rule get_genome:
+#     input:
+#         FTP.remote("ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_27/GRCh38.primary_assembly.genome.fa.gz", keep_local=True),
+#     output:
+#         "genome/genome.fa.gz"
+#     run:
+#         shell("mv {input} {output}")
 
 rule fastqc:
-    input:
-        fastq=expand(DATAPATH + "{sample}.fq.gz", sample=config["samples"])
-    output:
-        "results/fastqc/{sample}_fastqc.zip",
-        "results/fastqc/{sample}_fastqc.html"
-    params:
-        outputfolder="results/fastqc"
-    threads:
-        4
-    shell:
-        "fastqc -t {threads} {input.fastq} --outdir {params.outputfolder}"
+	input:
+		lambda wildcards: config["samples"][wildcards.sample]		
+	output:
+		"fastqc/{sample}_fastqc.zip",
+		"fastqc/{sample}_fastqc.html"
+	params:
+		"--outdir fastqc"
+	threads:
+		4
+	shell:
+		"fastqc -t {threads} {input} {params}"
 
-rule trimGalore:
-    input:
-        # fastq=expand(DATAPATH + "{sample}.fq.gz", sample=config["samples"])
-        fastq="data/{sample}.fq.gz"
-    output:
-        trimmed="results/trim_galore/{sample}_trimmed.fq.gz",
-        logfolder="results/logs/{sample}.fq.gz_trimming_report.txt"
-    params:
-        basic="-q 20 --gzip --length 16 --fastqc",
-        outputfolder="-o results/trim_galore",
-        log="results/trim_galore/{sample}.fq.gz_trimming_report.txt",
-        adaptor="" if config["trim_galore_params"] else "-a "+config["trim_galore_params"]
-    shell:
-        """
-        trim_galore {params.basic} {params.outputfolder} {params.adaptor} {input.fastq}
-        mv {params.log} {output.logfolder}
-        """
+rule trimgalore:
+	input:
+		lambda wildcards: config["samples"][wildcards.sample]
+	output:
+		trimmed="trim_galore/{sample}_trimmed.fq.gz",
+		log="logs/trim_galore/{sample}.fq.gz_trimming_report.txt"
+	params:
+		basic="-q 20 --gzip --length 16 --fastqc",
+		outputfolder="-o trim_galore",
+		log="trim_galore/{sample}.fq.gz_trimming_report.txt",
+	shell:
+		"""
+		trim_galore {params.basic} {params.outputfolder} {input}
+		mv {params.log} {output.log}
+		"""
 
-# ——————————————————
-# Nobby begin
+rule index_rRNA_tRNA:
+	input:
+		"genome/human_rRNA_tRNA/rRNA_tRNA.fa.gz"
+	output:
+		expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
+		expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
+	params:
+		basename="genome/human_rRNA_tRNA/rRNA_tRNA"
+	log:
+		"logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
+	threads:
+		8
+	shell:
+		"bowtie2-build --threads {threads} {input} {params.basename} &> {log}"
 
 rule remove_rRNA_tRNA:
-    input:
-        # expand("trim_galore/{sample}_trimmed.fq.gz", sample=config["samples"])
-        "results/trim_galore/{sample}_trimmed.fq.gz"
-    output:
-        # expand("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz", sample=config["samples"])
-        "results/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"
-    log:
-        # expand("logs/{sample}.rRNA_tRNA_removal.log", sample=config["samples"])
-        "results/logs/{sample}.rRNA_tRNA_removed.log"
-    params:
-        bt2_index=config['bt2_rRNA_tRNA_index'],
-        threads=8
-    shell:
-        """
-        # set -v
-        ml Bowtie2
-        bowtie2 -p {params.threads} --un-gz {output} -x {params.bt2_index} -U {input} > /dev/null 2> {log}
-        # set +v
-        """
+	input:
+		fastq="trim_galore/{sample}_trimmed.fq.gz",
+		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
+		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
+	output:
+		"rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"
+	log:
+		"logs/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.log"
+	threads:
+		8
+	shell:
+		"bowtie2 -p {threads} --un-gz {output} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} > /dev/null &> {log}"
+
+rule gunzip_genome:
+	input:
+		"genome/GRCh38.primary_assembly.genome.fa.gz"
+	output:
+		"genome/GRCh38.primary_assembly.genome.fa"
+	shell:
+		"gunzip {input}"
+
+rule index_star:
+	input:
+		genome="genome/GRCh38.primary_assembly.genome.fa",
+		annotation="annotation/gencode.v27.annotation.gtf.gz"
+	output:
+		"genome/STAR_GRCh38_v27",
+		"genome/STAR_GRCh38_v27/SA",
+		"genome/STAR_GRCh38_v27/SAindex"
+	params:
+		prefix="genome/STAR_GRCh38_v27",
+		overhang="--sjdbOverhang 99"
+	threads:
+		8
+	shell:
+		"""
+		STAR --runMode genomeGenerate --runThreadN {threads} --genomeDir {params.prefix} --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annotation} {params.overhang}
+		gzip genome/GRCh38.primary_assembly.genome.fa
+		"""
 
 rule map_star:
-    input:
-        # expand("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz", sample=config["samples"])
-        fastq="results/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"
-    output:
-        # expand("mapped/{sample}.Aligned.sortedByCoord.out.bam", sample=config["samples"])
-        bam="results/mapped/{sample}.Aligned.sortedByCoord.out.bam",
-        logfolder="results/logs/{sample}.Log.final.out"
-    params:
-        star_index=config['star_index'],
-        # prefix = expand("mapped/{sample}.", sample=config["samples"]),
-        log="results/mapped/{sample}.Log.final.out",
-        outprefix="results/mapped/{sample}.",
-        threads=8
-    run:
-        if config['seq_type'] == "RNA":
-            shell("STAR --genomeDir {params.star_index} --readFilesIn {input.fastq} --readFilesCommand zcat --outFileNamePrefix {params.outprefix} --runThreadN {params.threads} --genomeLoad NoSharedMemory --outFilterMultimapNmax 1 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1  --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outFilterType BySJout --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000")
-        elif config['seq_type'] == "CLIP":
-            shell("STAR --genomeDir {params.star_index} --readFilesIn {input} --readFilesCommand zcat --outFileNamePrefix {params.outprefix} --runThreadN {params.threads} --genomeLoad NoSharedMemory --readFilesCommand zcat --outSAMunmapped Within --outFilterMultimapNmax 1 --outFilterMultimapScoreRange 1 --outSAMattributes All --outSAMtype BAM Unsorted --outFilterType BySJout --outFilterScoreMin 10 --alignEndsType EndToEnd --outSAMtype BAM SortedByCoordinate --limitBAMsortRAM 60000000000")
-        shell("mv {params.log} {output.logfolder}")
+	input:
+		fastq="rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz",
+		index="genome/STAR_GRCh38_v27/SAindex",
+		genome="genome/STAR_GRCh38_v27"
+	output:
+		bam="mapped/{sample}.Aligned.sortedByCoord.out.bam",
+		log="logs/map_star/{sample}.Log.final.out"
+	params:
+		log="mapped/{sample}.Log.final.out",
+		outprefix="results/mapped/{sample}.",
+		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000",
+		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate"
+	threads:
+		8
+	shell:
+		"""
+		STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} --alignSJoverhangMin 8 --alignSJDBoverhangMin 1  --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outFilterType BySJout --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000
+		mv {params.log} {output.log}
+		"""
 
 rule sambamba_index:
-    input:
-        # expand("mapped/{sample}.Aligned.sortedByCoord.out.bam", sample=config["samples"])
-        "results/mapped/{sample}.Aligned.sortedByCoord.out.bam"
-    output:
-        # expand("mapped/{sample}.Aligned.sortedByCoord.out.bam.bai", sample=config["samples"])
-        "results/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
-    params:
-        threads=8
-    shell:
-        "sambamba index -t {params.threads} {input} {output}"
+	input:
+		"mapped/{sample}.Aligned.sortedByCoord.out.bam"
+	output:
+		"mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
+	threads:
+		8
+	shell:
+		"sambamba index -t {threads} {input} {output}"
 
-rule create_bigwig:
-    input:
-        "results/mapped/{sample}.Aligned.sortedByCoord.out.bam"
-    output:
-        bigwig_pos="results/coverage/{sample}_plus.bigwig",
-        bigwig_neg="results/coverage/{sample}_minus.bigwig",
-        bg_pos=temp("results/coverage/{sample}.Signal.Unique.str1.out.bg"),
-        bg_neg=temp("results/coverage/{sample}.Signal.Unique.str2.out.bg"),
-        bg_multi_pos=temp("results/coverage/{sample}.Signal.UniqueMultiple.str1.out.bg"),
-        bg_multi_neg=temp("results/coverage/{sample}.Signal.UniqueMultiple.str2.out.bg")
-    params:
-        outprefix="results/coverage/{sample}.",
-        chr_lengths=config['chr_lengths']
-    shell:
-        """
-        STAR --runMode inputAlignmentsFromBAM --inputBAMfile {input} --outWigType bedGraph --outWigStrand Stranded --outWigNorm RPM --outFileNamePrefix {params.outprefix}
-        bedSort {output.bg_pos} {output.bg_pos}
-        bedSort {output.bg_neg} {output.bg_neg}
-        bedGraphToBigWig {output.bg_pos} {params.chr_lengths} {output.bigwig_pos}
-        bedGraphToBigWig {output.bg_neg} {params.chr_lengths} {output.bigwig_neg}
-        """
+#rule get_picard:
+#	input:
+#		HTTP.remote("https://github.com/broadinstitute/picard/releases/download/2.17.0/picard.jar", keep_local=True)
+#	output:
+#		"picard.jar"
+#	run:
+#		outputName = os.path.basename(input[0])
+#		shell("mv {input} {outputName}")
+#		shell("chmod a+x {outputName}")
+
+rule remove_duplicate:
+	input:
+		picard="picard.jar",
+		bamfile="mapped/{sample}.Aligned.sortedByCoord.out.bam",
+		index="mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
+	output:
+		bamfile="picarded/{sample}.Aligned.sortedByCoord.picard.bam",
+		index="picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai"
+	log:
+		"log/remove_duplicate/{sample}.Aligned.sortedByCoord.picard.txt"
+	params:
+		"REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate"
+	shell:
+		"""
+		java -jar picard.jar MarkDuplicates I={input.bamfile} O={output.bamfile} M={log} {params}
+		java -jar picard.jar BuildBamIndex I={output.bamfile}
+		"""
+
+rule create_flatGFF:
+	input:
+		"annotation/gencode.v27.annotation.gtf.gz"
+	output:
+		"annotation/gencode.v27.annotation.flat.gtf.gz"
+	shell:
+		"java -jar QoRTs.jar --stranded {input} {output}"
+
+#rule get_qorts:
+#	input:
+#		HTTP.remote("https://github.com/hartleys/QoRTs/releases/download/1.3.0/QoRTs.jar", keep_local=True, allow_redirects=True)
+#	output:
+#		"QoRTs.jar"
+#	run:
+#		outputName = os.path.basename(input[0])
+#		shell("mv {input} {outputName}")
+#		shell("chmod a+x {outputName}")
+
+rule quantification:
+	input:
+		executable="QoRTs.jar",
+		gff="annotation/gencode.v27.annotation.gtf.gz",
+		flatfile="annotation/gencode.v27.annotation.flat.gtf.gz",
+		bamfile="mapped/{sample}.Aligned.sortedByCoord.out.bam",
+		index="mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
+	output:
+		firstStrand="qorts/{sample}.firstStrand.counts",
+		secondStrand="qorts/{sample}.secondStrand.counts"
+	params:
+		library="--stranded --singleEnded --minMAPQ 255",
+		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,makeWiggles,writeDESeq,writeDEXSeq,writeJunctionSeqCounts"
+	shell:
+		"""
+		java -jar QoRTs.jar {params.library} --runFunctions {params.functions} {input.bamfile} {input.gff} {output.firstStrand}
+		java -jar QoRTs.jar {params.library} --stranded_fr_secondstrand --runFunctions {params.functions} {input.bamfile} {input.gff} {output.secondStrand}
+		"""

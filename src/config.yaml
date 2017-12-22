@@ -1,0 +1,8 @@
+# Define pipeline paths
+datapath: /camp/lab/luscomben/working/agostif/projects/snakemake/data/
+
+# Define samples
+samples:
+   HeLa_WT_1: /camp/lab/luscomben/working/agostif/projects/snakemake/data/n26_CTTGTA.fastq.gz
+   HeLa_WT_2: /camp/lab/luscomben/working/agostif/projects/snakemake/data/n27_CCGTCC.fastq.gz
+
