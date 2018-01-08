@@ -12,8 +12,8 @@ rule fastqc:
 	input:
 		fastq=lambda wildcards: config["samples"][wildcards.sample]		
 	output:
-		html=expand("fastqc/{{sample}}_{ext}_fastqc.html", ext=["F", "R"])
-#		temp(expand("fastqc/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"])
+		html=expand("fastqc/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
+		gzip=temp(expand("fastqc/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"]))
 	params:
 		fc="--outdir fastqc",
 		cluster='-N 1 -c 4 --mem=8G -t 160:00:00'
@@ -29,6 +29,14 @@ rule fastqc:
 		fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
 		fastqc_html = output["html"][1]
 		shell("mv {fastqc_out} {fastqc_html}")
+		zip_out = "/".join(("fastqc", os.path.basename(input["fastq"][0])))
+		zip_out = "_".join((zip_out.partition(".")[0], "fastqc.zip"))
+		fastqc_gzip = output["gzip"][0]
+		shell("mv {zip_out} {fastqc_gzip}")
+		zip_out = "/".join(("fastqc", os.path.basename(input["fastq"][1])))
+		zip_out = "_".join((zip_out.partition(".")[0], "fastqc.zip"))
+		fastqc_gzip = output["gzip"][1]
+		shell("mv {zip_out} {fastqc_gzip}")
 
 rule trimgalore:
 	input:
@@ -76,10 +84,10 @@ rule remove_rRNA_tRNA:
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
 		pairs=expand("rRNA_tRNA_removed/{{sample}}.{ext}.rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
-		single=temp("rRNA_tRNA_removed/{sample}.S.rRNA_tRNA_removed.fq.gz"),
-		aligned=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz")
+		single=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"),
+		alignedS=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"),
+		alignedP=temp(expand("rRNA_tRNA_removed/{{sample}}.rRNA_tRNA_aligned.fq.{ext}.gz", ext=["1", "2"]))
 	params:
-		pairs="rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
 		"logs/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.log"
@@ -88,11 +96,11 @@ rule remove_rRNA_tRNA:
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1]
-		shell("bowtie2 -p {threads} --un-conc-gz {params.pairs} --un-gz {output.single} --al-gz {output.aligned} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} &> {log}")
-		fq_out = ".".join((params["pairs"].partition(".gz")[0], "1.gz"))
+		shell("bowtie2 -p {threads} --un-conc-gz {output.single} --un-gz {output.single} --al-gz {output.alignedS} --al-conc-gz {output.alignedS} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} &> {log}")
+		fq_out = ".".join((output["single"].partition(".gz")[0], "1.gz"))
 		final_out = output["pairs"][0]
 		shell("mv {fq_out} {final_out}")
-		fq_out = ".".join((params["pairs"].partition(".gz")[0], "2.gz"))
+		fq_out = ".".join((output["single"].partition(".gz")[0], "2.gz"))
 		final_out = output["pairs"][1]
 		shell("mv {fq_out} {final_out}")
 
@@ -147,8 +155,8 @@ rule map_star:
 		bam="mapped/{sample}.Aligned.sortedByCoord.out.bam",
 		counts="mapped/{sample}.ReadsPerGene.out.tab",
 		junctions="mapped/{sample}.SJ.out.tab",
-		log1=temp("mapped/{sample}.Aligned.Log.out"),
-		log2=temp("mapped/{sample}.Aligned.Log.progress.out"),
+		log1=temp("mapped/{sample}.Log.out"),
+		log2=temp("mapped/{sample}.Log.progress.out"),
 		genomefolder=temp("mapped/{sample}._STARgenome"),
 		passfolder=temp("mapped/{sample}._STARpass1")
 	params:
