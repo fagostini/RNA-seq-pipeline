@@ -1,6 +1,7 @@
-# from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+import os
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 
-# FTP = FTPRemoteProvider()
+HTTP = HTTPRemoteProvider()
 
 # Import config file & parameters
 configfile: 'config.yaml'
@@ -12,8 +13,8 @@ rule all:
 	input:
 		expand("fastqc/{sample}_fastqc.html", sample=config["samples"]),
 		expand("qorts/{sample}.firstStrand.counts", sample=config["samples"]),
-		expand("qorts/{sample}.secondStrand.counts", sample=config["samples"])
-
+		expand("qorts/{sample}.secondStrand.counts", sample=config["samples"]),
+		expand("coverage/{sample}.{strand}.bedGraph", sample=config["samples"], strand=["pos", "neg"])
 rule fastqc:
 	input:
 		lambda wildcards: config["samples"][wildcards.sample]		
@@ -21,7 +22,7 @@ rule fastqc:
 		"fastqc/{sample}_fastqc.html"
 	params:
 		fc="--outdir fastqc",
-		cluster= '-N 1 -c 4 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 4 --mem=8G -t 160:00:00'
 	threads:
 		4
 	run:
@@ -38,7 +39,7 @@ rule trimgalore:
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
 		outputfolder="-o trim_galore",
-		cluster= '-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
 		log="logs/trim_galore/{sample}.fq.gz_trimming_report.txt",
 	run:
@@ -56,7 +57,7 @@ rule index_rRNA_tRNA:
 		expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	params:
 		basename="genome/human_rRNA_tRNA/rRNA_tRNA",
-		cluster= '-N 1 -c 8 --mem=30G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=30G -t 160:00:00'
 	log:
 		"logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
 	threads:
@@ -71,34 +72,16 @@ rule remove_rRNA_tRNA:
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
 		un=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"),
-		al=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz")
+		al=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"),
+		tmp=temp("rRNA_tRNA_removed/{sample}.tmp")
 	params:
-		cluster= '-N 1 -c 8 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
 		"logs/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.log"
 	threads:
 		8
 	shell:
-		"bowtie2 -p {threads} --un-gz {output.un} --al-gz {output.al} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} &> {log}"
-
-# rule get_annotation:
-#     input:
-#         gff=FTP.remote("ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_27/gencode.v27.annotation.gff3.gz", keep_local=True),
-#         gtf=FTP.remote("ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_27/gencode.v27.annotation.gtf.gz", keep_local=True)
-#     output:
-#         gff="annotation/gencode.gff3.gz"
-#         gtf="annotation/gencode.gtf.gz"
-#     run:
-#         shell("mv {input.gff} {output.gff}")
-#         shell("mv {input.gtf} {output.gtf}")
-
-# rule get_genome:
-#     input:
-#         FTP.remote("ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_27/GRCh38.primary_assembly.genome.fa.gz", keep_local=True),
-#     output:
-#         "genome/genome.fa.gz"
-#     run:
-#         shell("mv {input} {output}")
+		"bowtie2 -p {threads} --un-gz {output.un} --al-gz {output.al} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp} 2> {log}"
 
 rule gunzip_annotation:
 	input:
@@ -106,7 +89,7 @@ rule gunzip_annotation:
 	output:
 		"annotation/gencode.v27.annotation.gtf"
 	params:
-		cluster= '-N 1 -c 1 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
 	shell:
 		"gunzip {input}"
 
@@ -116,7 +99,7 @@ rule gunzip_genome:
 	output:
 		"genome/GRCh38.primary_assembly.genome.fa"
 	params:
-		cluster= '-N 1 -c 1 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
 	shell:
 		"gunzip {input}"
 
@@ -132,7 +115,7 @@ rule index_star:
 	params:
 		prefix="genome/STAR_GRCh38_v27",
 		overhang="--sjdbOverhang 99",
-		cluster= '-N 1 -c 8 --mem=64G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
 	threads:
 		8
 	shell:
@@ -148,13 +131,15 @@ rule map_star:
 		index="genome/STAR_GRCh38_v27/SAindex",
 		genome="genome/STAR_GRCh38_v27"
 	output:
-		bam="mapped/{sample}.Aligned.sortedByCoord.out.bam",
+		bam=temp("mapped/{sample}.Aligned.sortedByCoord.out.bam"),
+		cnt="mapped/{sample}.ReadsPerGene.out.tab",
+		jct="mapped/{sample}.SJ.out.tab",
 		log="logs/map_star/{sample}.Log.final.out"
 	params:
 		outprefix="mapped/{sample}.",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate",
-		cluster= '-N 1 -c 8 --mem=64G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
 	log:
 		"mapped/{sample}.Log.final.out"
 	threads:
@@ -170,7 +155,7 @@ rule sambamba_index:
 	output:
 		"mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
 	params:
-		cluster= '-N 1 -c 8 --mem=32G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
 	threads:
 		8
 	shell:
@@ -197,7 +182,7 @@ rule remove_duplicate:
 		"log/remove_duplicate/{sample}.Aligned.sortedByCoord.picard.txt"
 	params:
 		pd="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
-		cluster= '-N 1 -c 1 --mem=30G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=30G -t 160:00:00'
 	shell:
 		"java -Xmx16G -jar picard.jar MarkDuplicates I={input.bamfile} O={output} M={log} {params.pd}"
 
@@ -206,6 +191,8 @@ rule picard_index:
 		"picarded/{sample}.Aligned.sortedByCoord.picard.bam"
 	output:
 		"picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai"
+	params:
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	shell:
 		"java -Xmx16G -jar picard.jar BuildBamIndex I={input} O={output}"
 
@@ -215,7 +202,7 @@ rule create_flatGFF:
 	output:
 		"annotation/gencode.v27.annotation.flat.gtf.gz"
 	params:
-		cluster= '-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	shell:
 		"java -Xmx16G -jar QoRTs.jar makeFlatGff --stranded {input} {output}"
 
@@ -243,9 +230,25 @@ rule quantification:
 	params:
 		library="--stranded --singleEnded --minMAPQ 255",
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,makeWiggles,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
-		cluster= '-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	shell:
 		"""
 		java -Xmx16G -jar QoRTs.jar QC {params.library} --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.firstStrand}
 		java -Xmx16G -jar QoRTs.jar QC {params.library} --stranded_fr_secondstrand --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.secondStrand}
+		"""
+
+rule genome_coverage:
+	input:
+		bamfile="picarded/{sample}.Aligned.sortedByCoord.picard.bam",
+		genomeSize="genome/STAR_GRCh38_v27/chrNameLength.txt"
+	output:
+		positive="coverage/{sample}.pos.bedGraph",
+		negative="coverage/{sample}.neg.bedGraph"
+	params:
+		bt="-bg -split",
+		cluster='-N 1 -c 1 --mem=24G -t 160:00:00'
+	shell:
+		"""
+		genomeCoverageBed {params.bt} -strand + -ibam {input.bamfile} -g {input.genomeSize} > {output.positive}
+		genomeCoverageBed {params.bt} -strand - -ibam {input.bamfile} -g {input.genomeSize} > {output.negative}
 		"""

@@ -6,7 +6,8 @@ rule all:
 		expand("fastqc/{sample}_{ext}_fastqc.html", sample=config["samples"], ext=["F", "R"]),
 		expand("picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai", sample=config["samples"]),
 		expand("qorts/{sample}.firstStrand.counts", sample=config["samples"]),
-		expand("qorts/{sample}.secondStrand.counts", sample=config["samples"])
+		expand("qorts/{sample}.secondStrand.counts", sample=config["samples"]),
+		expand("coverage/{sample}.{strand}.bedGraph", sample=config["samples"], strand=["pos", "neg"])
 
 rule fastqc:
 	input:
@@ -86,7 +87,8 @@ rule remove_rRNA_tRNA:
 		pairs=expand("rRNA_tRNA_removed/{{sample}}.{ext}.rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
 		single=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"),
 		alignedS=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"),
-		alignedP=temp(expand("rRNA_tRNA_removed/{{sample}}.rRNA_tRNA_aligned.fq.{ext}.gz", ext=["1", "2"]))
+		alignedP=temp(expand("rRNA_tRNA_removed/{{sample}}.rRNA_tRNA_aligned.fq.{ext}.gz", ext=["1", "2"])),
+		tmp=temp("rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
@@ -96,7 +98,7 @@ rule remove_rRNA_tRNA:
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1]
-		shell("bowtie2 -p {threads} --un-conc-gz {output.single} --un-gz {output.single} --al-gz {output.alignedS} --al-conc-gz {output.alignedS} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} &> {log}")
+		shell("bowtie2 -p {threads} --un-conc-gz {output.single} --un-gz {output.single} --al-gz {output.alignedS} --al-conc-gz {output.alignedS} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
 		fq_out = ".".join((output["single"].partition(".gz")[0], "1.gz"))
 		final_out = output["pairs"][0]
 		shell("mv {fq_out} {final_out}")
@@ -249,4 +251,20 @@ rule quantification:
 		"""
 		java -Xmx16G -jar QoRTs.jar QC {params.library} --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.firstStrand}
 		java -Xmx16G -jar QoRTs.jar QC {params.library} --stranded_fr_secondstrand --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.secondStrand}
+		"""
+
+rule genome_coverage:
+	input:
+		bamfile="picarded/{sample}.Aligned.sortedByCoord.picard.bam"
+	output:
+		positive="coverage/{sample}.pos.bedGraph",
+		negative="coverage/{sample}.neg.bedGraph"
+	params:
+		bt="-bg -split",
+		paired="-pc -du",
+		cluster='-N 1 -c 1 --mem=48G -t 160:00:00'
+	shell:
+		"""
+		genomeCoverageBed {params.bt} {params.paired} -strand '+' -ibam {input.bamfile} > {output.positive}
+		genomeCoverageBed {params.bt} {params.paired} -strand '-' -ibam {input.bamfile} > {output.negative}
 		"""
