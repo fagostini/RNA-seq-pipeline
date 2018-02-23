@@ -4,6 +4,7 @@ configfile: 'config.yaml'
 rule all:
 	input:
 		expand("fastqc/{sample}_{ext}_fastqc.html", sample=config["samples"], ext=["F", "R"]),
+		expand("mapped/{sample}.ReadsPerGene.out.tab", sample=config["samples"]),
 		expand("picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai", sample=config["samples"]),
 		expand("qorts/{sample}.firstStrand.counts", sample=config["samples"]),
 		expand("qorts/{sample}.secondStrand.counts", sample=config["samples"]),
@@ -43,7 +44,7 @@ rule trimgalore:
 	input:
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
-		fastq=expand("trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"])
+		fastq=temp(expand("trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]))
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
 		paired="--paired --trim1",
@@ -84,7 +85,7 @@ rule remove_rRNA_tRNA:
 		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		pairs=expand("rRNA_tRNA_removed/{{sample}}.{ext}.rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
+		pairs=temp(expand("rRNA_tRNA_removed/{{sample}}.{ext}.rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
 		single=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"),
 		alignedS=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"),
 		alignedP=temp(expand("rRNA_tRNA_removed/{{sample}}.rRNA_tRNA_aligned.fq.{ext}.gz", ext=["1", "2"])),
@@ -154,7 +155,7 @@ rule map_star:
 		index="genome/STAR_GRCh38_v27/SAindex",
 		genome="genome/STAR_GRCh38_v27"
 	output:
-		bam="mapped/{sample}.Aligned.sortedByCoord.out.bam",
+		bam=temp("mapped/{sample}.Aligned.sortedByCoord.out.bam"),
 		counts="mapped/{sample}.ReadsPerGene.out.tab",
 		junctions="mapped/{sample}.SJ.out.tab",
 		log1=temp("mapped/{sample}.Log.out"),
@@ -164,7 +165,7 @@ rule map_star:
 	params:
 		outprefix="mapped/{sample}.",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000",
-		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate",
+		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		log="mapped/{sample}.Log.final.out",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
 	log:
