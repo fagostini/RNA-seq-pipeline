@@ -1,8 +1,10 @@
 # Define pipeline paths
-datapath: /camp/lab/luscomben/working/agostif/projects/snakemake/data/
+snakemake_path: /Users/agostif/Documents/GitHub/vigilant-cobra/src
+results_path: /Users/agostif/Documents/GitHub/vigilant-cobra/results
 
 # Define samples
 samples:
-   HeLa_WT_1: /camp/lab/luscomben/working/agostif/projects/snakemake/data/n26_CTTGTA.fastq.gz
-   HeLa_WT_2: /camp/lab/luscomben/working/agostif/projects/snakemake/data/n27_CCGTCC.fastq.gz
+  HeLa_WT: ["/Users/agostif/Documents/GitHub/vigilant-cobra/fastq/n26_CTTGTA.fastq.gz"]
+  RNAseq_UV_24h_MRC5VA: ["/Users/agostif/Documents/GitHub/vigilant-cobra/fastq/SRR5097391_1.fastq.gz", "/Users/agostif/Documents/GitHub/vigilant-cobra/fastq/SRR5097391_2.fastq.gz"]
 
+ngs_type: "RNAseq" # or ChIPseq

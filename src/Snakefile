@@ -1,81 +1,172 @@
 import os
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+import platform
+import pandas as pd
+import numpy as np
 
-HTTP = HTTPRemoteProvider()
+# from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+# HTTP = HTTPRemoteProvider()
 
 # Import config file & parameters
 configfile: 'config.yaml'
 
 # Import paths from config file
-# DATAPATH=config['datapath']
+workdir: config['snakemake_path']
+RESULTS_PATH = config['results_path']
+
+def platform_info():
+	import platform
+	if platform.system() in "Darwin":
+		return(".".join(("macOS", platform.machine())))
+	else:
+		return(".".join((platform.system(), platform.machine())))
 
 rule all:
 	input:
-		expand("fastqc/{sample}_fastqc.html", sample=config["samples"]),
-		expand("qorts/{sample}.firstStrand.counts", sample=config["samples"]),
-		expand("qorts/{sample}.secondStrand.counts", sample=config["samples"]),
-		expand("coverage/{sample}.{strand}.bedGraph", sample=config["samples"], strand=["pos", "neg"])
+		expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] )),
+		# expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] ))
+		# expand(RESULTS_PATH+"/fastqc/{sample}_fastqc.html", sample=config["samples"]) if len(config["samples"]) == 1 else expand(RESULTS_PATH+"/fastqc/{sample}_{ext}_fastqc.html", sample=config["samples"], ext=["F", "R"])						
+		# expand(RESULTS_PATH+"/qorts/{sample}.firstStrand.counts", sample=config["samples"]),
+		# expand(RESULTS_PATH+"/qorts/{sample}.secondStrand.counts", sample=config["samples"]),
+		# expand(RESULTS_PATH+"/coverage/{sample}.{strand}.bedGraph", sample=config["samples"], strand=["pos", "neg"])
 
-rule fastqc_pre:
+def proc_fastqc(inlist, outdir, outlist):
+	for i in range(len(inlist)):
+		os.system(" ".join(("fastqc --outdir", outdir, inlist[i])))
+		base_out = "/".join((outdir, os.path.basename(inlist[i])))
+		fqc_out = "_".join((base_out.partition(".")[0], "fastqc.html"))
+		zip_out = "_".join((base_out.partition(".")[0], "fastqc.zip"))
+		os.system(" ".join(("mv", fqc_out, outlist["html"][i])))
+		os.system(" ".join(("mv", zip_out, outlist["gzip"][i])))
+
+rule fastqc_se_pre:
 	input:
-		lambda wildcards: config["samples"][wildcards.sample]		
+		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
-		"fastqc-pre/{sample}_fastqc.html"
+		html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["S"]),
+		gzip=temp(expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.zip", ext=["S"]))
 	params:
-		fc="--outdir fastqc-pre",
-		cluster='-N 1 -c 4 --mem=8G -t 160:00:00'
+		outdir=RESULTS_PATH+"/fastqc-pre",
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
 	log:
-		log="logs/fastqc-pre/{sample}.txt"
+		RESULTS_PATH+"/logs/fastqc-pre/{sample}.txt"
 	threads:
-		4
+		1
 	run:
-		shell("fastqc -t {threads} {input} {params.fc} 2>&1 > {log}")
-		fastqc_out = "/".join(("fastqc", os.path.basename(input[0])))
-		fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
-		shell("mv {fastqc_out} {output}")
+		proc_fastqc(input["fastq"], params["outdir"], output)
 
-### Works only on paired-end reads
-# rule rcorrector:
-# 	input:
-# 		lambda wildcards: config["samples"][wildcards.sample]
-# 	output:
-# 		temp("rCorrector/{sample}_corrected.fq.gz")
-# 	threads:
-# 		8
-# 	shell:
-# 		"perl run_rcorrector.pl -t {threads} -od {output.outdir} -1 {input.F} -2 {input.R}"
+		# shell("fastqc -t {threads} {input.fastq} --outdir {params.outdir} 2>&1 > {log}")
+		# fastqc_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input[0])))
+		# fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
+		# shell("mv {fastqc_out} {output.html}")
 
-# rule discard_unfixable:
-# 	input:
-# 		F="...",
-# 		R="..."
-# 	output:
-# 		temp("filter_unfixable/{sample}_fixed.fq.gz")
-# 	log:
-# 		log="logs/filter_unfixable/{sample}.txt"
-# 	threads:
-# 		1
-# 	shell:
-# 		"python FilterUncorrectabledPEfastq.py -t {threads} -o filter_unfixable -1 {input.F} -2 {input.R} 2>&1 {log}"
+rule fastqc_pe_pre:
+	input:
+		fastq=lambda wildcards: config["samples"][wildcards.sample]
+	output:
+		html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
+		gzip=temp(expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"]))
+	params:
+		outdir=RESULTS_PATH+"/fastqc-pre",
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
+	threads:
+		1
+	run:
+		proc_fastqc(input["fastq"], params["outdir"], output)
 
-rule trimgalore:
+		# shell("fastqc -t {threads} --outdir {params.outdir} {input.fastq}")
+		# fastqc_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][0])))
+		# fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
+		# fastqc_html = output["html"][0]
+		# shell("mv {fastqc_out} {fastqc.html}")
+		# fastqc_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][1])))
+		# fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
+		# fastqc_html = output["html"][1]
+		# shell("mv {fastqc_out} {fastqc.html}")
+		# zip_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][0])))
+		# zip_out = "_".join((zip_out.partition(".")[0], "fastqc.zip"))
+		# fastqc_gzip = output["gzip"][0]
+		# shell("mv {zip_out} {fastqc.gzip}")
+		# zip_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][1])))
+		# zip_out = "_".join((zip_out.partition(".")[0], "fastqc.zip"))
+		# fastqc_gzip = output["gzip"][1]
+		# shell("mv {zip_out} {fastqc.gzip}")
+
+rule trimgalore_se:
 	input:
 		lambda wildcards: config["samples"][wildcards.sample]
-		# "filter_unfixable/{sample}_fixed.fq.gz"
 	output:
-		temp("trim_galore/{sample}_trimmed.fq.gz")
+		temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["S"]))
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
-		outputfolder="-o trim_galore",
+		outdir=RESULTS_PATH+"/trim_galore",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
-		log="logs/trim_galore/{sample}.fq.gz_trimming_report.txt",
+		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt",
 	run:
-		shell("trim_galore {params.basic} {params.outputfolder} {input} &> {log}")
-		trimmed_out = "/".join(("trim_galore", os.path.basename(input[0])))
-		trimmed_out = "_".join((trimmed_out.partition(".")[0], "trimmed.fq.gz"))
-		final_out = "/".join(("trim_galore", os.path.basename(output[0])))
+		shell("trim_galore {params.basic} {params.paired} -o {params.outdir} {input.fastq} &> {log}")
+		trimmed_out = "/".join((RESULTS_PATH+"/trim_galore", os.path.basename(input["fastq"][0])))
+		trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_1.fq.gz"))
+		shell("mv {trimmed_out} {output}")
+
+rule trimgalore_pe:
+	input:
+		fastq=lambda wildcards: config["samples"][wildcards.sample]
+	output:
+		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]))
+	params:
+		basic="-q 20 --gzip --length 16 --no_report_file",
+		paired="--paired --trim1",
+		outdir=RESULTS_PATH+"/trim_galore",
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+	log:
+		unfix=RESULTS_PATH+"/logs/discard_unfixable/{sample}.txt",
+		trimg=RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt"
+	run:
+		in1 = input["fastq"][0] 
+		in2 = input["fastq"][1]
+		shell("perl run_rcorrector.pl -t {threads} -od {output} -1 {in1} -2 {in2}")
+		in1 = "/".join(output["outdir"], os.path.basename(in1).partition(".")[0]+".cor.fq.gz")
+		in2 = "/".join(output["outdir"], os.path.basename(in2).partition(".")[0]+".cor.fq.gz")
+		shell("python FilterUncorrectabledPEfastq.py -t {threads} -o filter_unfixable -1 {in1} -2 {in2} 2>&1 {log.unfix}")
+
+		shell("trim_galore {params.basic} {params.paired} -o {params.outdir} {input.fastq} &> {log.trimg}")
+		trimmed_out = "/".join((RESULTS_PATH+"/trim_galore", os.path.basename(input["fastq"][0])))
+		trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_1.fq.gz"))
+		final_out = output["fastq"][0]
 		shell("mv {trimmed_out} {final_out}")
+		trimmed_out = "/".join(("trim_galore", os.path.basename(input["fastq"][1])))
+		trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_2.fq.gz"))
+		final_out = output["fastq"][1]
+		shell("mv {trimmed_out} {final_out}")
+
+rule rcorrector:
+	input:
+		fastq=lambda wildcards: config["samples"][wildcards.sample]
+	output:
+		temp(expand(RESULTS_PATH+"rCorrector/{{sample}}_{ext}.cor.fq.gz", ext=["1", "2"]))
+	threads:
+		8
+	run:
+		in1 = input["fastq"][0] 
+		in2 = input["fastq"][1]
+		shell("perl run_rcorrector.pl -t {threads} -od {output} -1 {in1} -2 {in2}")
+
+rule discard_unfixable:
+	input:
+		fastq=expand(RESULTS_PATH+"rCorrector/{{sample}}_{ext}.cor.fq.gz", ext=["1", "2"])
+	output:
+		temp("filter_unfixable/{sample}_fixed.fq.gz")
+	log:
+		log="logs/filter_unfixable/{sample}.txt"
+	threads:
+		1
+	shell:
+		"python FilterUncorrectabledPEfastq.py -t {threads} -o filter_unfixable -1 {input.F} -2 {input.R} 2>&1 {log}"
+
+
+
+
+
 
 rule index_rRNA_tRNA:
 	input:
@@ -95,37 +186,37 @@ rule index_rRNA_tRNA:
 
 rule remove_rRNA_tRNA:
 	input:
-		fastq="trim_galore/{sample}_trimmed.fq.gz",
+		fastq=RESULTS_PATH+"/trim_galore/{sample}_trimmed.fq.gz",
 		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		un=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"),
-		al=temp("rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"),
-		tmp=temp("rRNA_tRNA_removed/{sample}.tmp")
+		una=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"),
+		aln=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"),
+		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
-		"logs/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.log"
+		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.log"
 	threads:
 		8
 	shell:
-		"bowtie2 --sensitive-local --threads {threads} --un-gz {output.un} --al-gz {output.al} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 2>&1 > {output.tmp}"
+		"bowtie2 --sensitive-local --threads {threads} --un-gz {output.una} --al-gz {output.aln} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 2>&1 > {output.tmp}"
 
 rule fastqc_post:
 	input:
-		lambda wildcards: config["samples"][wildcards.sample]		
+		RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"		
 	output:
-		"fastqc-post/{sample}_fastqc.html"
+		RESULTS_PATH+"/fastqc-post/{sample}_fastqc.html"
 	params:
-		fc="--outdir fastqc-post",
+		outdir=" fastqc-post",
 		cluster='-N 1 -c 4 --mem=8G -t 160:00:00'
 	log:
-		log="logs/fastqc-post/{sample}.txt"
+		RESULTS_PATH+"/logs/fastqc-post/{sample}.txt"
 	threads:
 		4
 	run:
-		shell("fastqc -t {threads} {input} {params.fc} 2>&1 > {log}")
-		fastqc_out = "/".join(("fastqc", os.path.basename(input[0])))
+		shell("fastqc -t {threads} {input} --outdir {params.outdir} 2>&1 > {log}")
+		fastqc_out = "/".join((RESULTS_PATH+"fastqc-post", os.path.basename(input[0])))
 		fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
 		shell("mv {fastqc_out} {output}")
 
@@ -186,47 +277,73 @@ rule index_star:
 
 rule map_star:
 	input:
-		fastq="rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz",
+		fastq=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz",
 		index="genome/STAR_GRCh38_v27/SAindex",
-		genome="genome/STAR_GRCh38_v27"
+		genome="genome/STAR_GRCh38_v27",
+		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+
 	output:
-		bam=temp("mapped/{sample}.Aligned.sortedByCoord.out.bam"),
-		cnt="mapped/{sample}.ReadsPerGene.out.tab",
-		jct="mapped/{sample}.SJ.out.tab",
-		std="mapped/{sample}.StrandCheck.out.tab",
-		log="logs/map_star/{sample}.Log.final.out"
+		bam=temp(RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam"),
+		cnt=RESULTS_PATH+"/mapped/{sample}.ReadsPerGene.out.tab",
+		jct=RESULTS_PATH+"/mapped/{sample}.SJ.out.tab",
+		std=RESULTS_PATH+"/mapped/{sample}.StrandCheck.out.tab",
+		wi1=temp(RESULTS_PATH+"/mapped/{sample}.Signal.Unique.str1.out.wig"),
+		wi2=temp(RESULTS_PATH+"/mapped/{sample}.Signal.Unique.str2.out.wig"),
+		bwp=RESULTS_PATH+"/coverage/{sample}_plus.bigwig",
+		bwn=RESULTS_PATH+"/coverage/{sample}_minus.bigwig",
+		bgu=temp(RESULTS_PATH+"/coverage/{sample}.bedGraph"),
+		bwu=RESULTS_PATH+"/coverage/{sample}.bigwig",
+		log=RESULTS_PATH+"/logs/map_star/{sample}.Log.final.out"
 	params:
 		outprefix="mapped/{sample}.",
-		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts --sjdbScore 1 --limitBAMsortRAM 60000000000",
+		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
+		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
+		dna="--alignIntronMax 1 --alignMatesGapMax 300",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
 	log:
-		"mapped/{sample}.Log.final.out"
+		RESULTS_PATH+"/mapped/{sample}.Log.final.out"
 	threads:
 		8
 	run:
-		shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.output} &> {log}")
+		if config['seq_type'] == "RNAseq":
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.rna} {params.output} &> {log}")
+
+			df = pd.read_table(output['cnt'], sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
+			df = df.filter(regex="^(?!N_)", axis=0, ).sum()
+
+			exe_path = platform_info()+"/"
+			outfile = open(output['std'], "w")
+			if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
+				# outfile.write("FirstStrand")
+				shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
+				shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
+				print("FirstStrand")
+			elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
+				# outfile.write("SecondStrand")
+				shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwp}")
+				shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwn}")
+				print("SecondStrand")
+			else:
+				# outfile.write("Unstranded")
+				shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
+				shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
+				print("Unstranded")
+
+			shell(exe_path+"bigWigMerge {output.bwp} {output.bwn} {output.bgu}")
+			shell(exe_path+"bedGraphToBigWig {output.bgu} {input.chrmlen} {output.bwu}")
+			outfile.close()
+	
+		elif config['seq_type'] == "ChIPseq":
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.dna} {params.output} &> {log}")
+
 		shell("mv {log} {output.log}")
-		
-		import pandas as pd
-		import numpy as np
-		df = pd.read_table(output['cnt'], sep="\t", index_col=0, names=["FirstStrand", "SecondStrand", "Unstranded"])
-		df = df.filter(regex="^(?!N_)", axis=0, ).sum()
-		outfile = open(output['std'], "w")
-		if df['Unstranded'] == df['FirstStrand'] or df['Unstranded'] == df['SecondStrand']:
-			outfile.write("Unstranded")
-		elif df['FirstStrand'] > df['SecondStrand']:
-			outfile.write("FirstStrand")
-		else:
-			outfile.write("SecondStrand")
-		outfile.close()
-		"""
 
 rule sambamba_index:
 	input:
-		"mapped/{sample}.Aligned.sortedByCoord.out.bam"
+		RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam"
 	output:
-		"mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
+		RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
 	params:
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
 	threads:
@@ -246,38 +363,40 @@ rule sambamba_index:
 
 rule remove_duplicate:
 	input:
-#		picard="picard.jar",
-		bamfile="mapped/{sample}.Aligned.sortedByCoord.out.bam",
-		index="mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
+		picard="executables/jar/picard.jar",
+		bamfile=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam",
+		index=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
 	output:
-		"picarded/{sample}.Aligned.sortedByCoord.picard.bam",
+		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam",
 	log:
-		"log/remove_duplicate/{sample}.Aligned.sortedByCoord.picard.txt"
+		RESULTS_PATH+"/log/remove_duplicate/{sample}.Aligned.sortedByCoord.picard.txt"
 	params:
 		pd="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
 		cluster='-N 1 -c 1 --mem=30G -t 160:00:00'
 	shell:
-		"java -Xmx16G -jar picard.jar MarkDuplicates I={input.bamfile} O={output} M={log} {params.pd}"
+		"java -Xmx16G -jar {input.picard} MarkDuplicates I={input.bamfile} O={output} M={log} {params.pd}"
 
 rule picard_index:
 	input:
-		"picarded/{sample}.Aligned.sortedByCoord.picard.bam"
+		picard="executables/jar/picard.jar",
+		bam=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam"
 	output:
-		"picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai"
+		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai"
 	params:
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	shell:
-		"java -Xmx16G -jar picard.jar BuildBamIndex I={input} O={output}"
+		"java -Xmx16G -jar {input.picard} BuildBamIndex I={input.bam} O={output}"
 
 rule create_flatGFF:
 	input:
-		"annotation/gencode.v27.annotation.gtf.gz"
+		ann="annotation/gencode.v27.annotation.gtf.gz",
+		exe="executables/jar/QoRTs.jar"
 	output:
 		"annotation/gencode.v27.annotation.flat.gtf.gz"
 	params:
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	shell:
-		"java -Xmx16G -jar QoRTs.jar makeFlatGff --stranded {input} {output}"
+		"java -Xmx16G -jar {input.exe} makeFlatGff --stranded {input.ann} {output}"
 
 #rule get_qorts:
 #	input:
@@ -289,39 +408,39 @@ rule create_flatGFF:
 #		shell("mv {input} {outputName}")
 #		shell("chmod a+x {outputName}")
 
-rule quantification:
-	input:
-#		executable="QoRTs.jar",
-		gff="annotation/gencode.v27.annotation.gtf.gz",
-		flatfile="annotation/gencode.v27.annotation.flat.gtf.gz",
-		bamfile="picarded/{sample}.Aligned.sortedByCoord.picard.bam",
-		index="picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai",
-		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
-	output:
-		firstStrand="qorts/{sample}.firstStrand.counts",
-		secondStrand="qorts/{sample}.secondStrand.counts"
-	params:
-		library="--stranded --singleEnded --minMAPQ 255",
-		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,makeWiggles,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-	shell:
-		"""
-		java -Xmx16G -jar QoRTs.jar QC {params.library} --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.firstStrand}
-		java -Xmx16G -jar QoRTs.jar QC {params.library} --stranded_fr_secondstrand --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.secondStrand}
-		"""
+# rule quantification:
+# 	input:
+# #		executable="QoRTs.jar",
+# 		gff="annotation/gencode.v27.annotation.gtf.gz",
+# 		flatfile="annotation/gencode.v27.annotation.flat.gtf.gz",
+# 		bamfile=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam",
+# 		index=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai",
+# 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+# 	output:
+# 		firstStrand=RESULTS_PATH+"/qorts/{sample}.firstStrand.counts",
+# 		secondStrand=RESULTS_PATH+"/qorts/{sample}.secondStrand.counts"
+# 	params:
+# 		library="--stranded --singleEnded --minMAPQ 255",
+# 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,makeWiggles,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
+# 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+# 	shell:
+# 		"""
+# 		java -Xmx16G -jar QoRTs.jar QC {params.library} --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.firstStrand}
+# 		java -Xmx16G -jar QoRTs.jar QC {params.library} --stranded_fr_secondstrand --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.secondStrand}
+# 		"""
 
-rule genome_coverage:
-	input:
-		bamfile="picarded/{sample}.Aligned.sortedByCoord.picard.bam",
-		genomeSize="genome/STAR_GRCh38_v27/chrNameLength.txt"
-	output:
-		positive="coverage/{sample}.pos.bedGraph",
-		negative="coverage/{sample}.neg.bedGraph"
-	params:
-		bt="-bg -split",
-		cluster='-N 1 -c 1 --mem=24G -t 160:00:00'
-	shell:
-		"""
-		genomeCoverageBed {params.bt} -strand + -ibam {input.bamfile} -g {input.genomeSize} > {output.positive}
-		genomeCoverageBed {params.bt} -strand - -ibam {input.bamfile} -g {input.genomeSize} > {output.negative}
-		"""
+# rule genome_coverage:
+# 	input:
+# 		bamfile="picarded/{sample}.Aligned.sortedByCoord.picard.bam",
+# 		genomeSize="genome/STAR_GRCh38_v27/chrNameLength.txt"
+# 	output:
+# 		positive="coverage/{sample}.pos.bedGraph",
+# 		negative="coverage/{sample}.neg.bedGraph"
+# 	params:
+# 		bt="-bg -split",
+# 		cluster='-N 1 -c 1 --mem=24G -t 160:00:00'
+# 	shell:
+# 		"""
+# 		genomeCoverageBed {params.bt} -strand + -ibam {input.bamfile} -g {input.genomeSize} > {output.positive}
+# 		genomeCoverageBed {params.bt} -strand - -ibam {input.bamfile} -g {input.genomeSize} > {output.negative}
+# 		"""
