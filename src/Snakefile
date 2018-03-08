@@ -18,25 +18,23 @@ def platform_info():
 	if platform.system() in "Darwin":
 		return(".".join(("macOS", platform.machine())))
 	else:
-		return(".".join((platform.system(), platform.machine())))
+		return(".".join((platform.system().lower(), platform.machine())))
 
 rule all:
 	input:
 		expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] )),
-		# expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] ))
+		expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] ))
 		# expand(RESULTS_PATH+"/fastqc/{sample}_fastqc.html", sample=config["samples"]) if len(config["samples"]) == 1 else expand(RESULTS_PATH+"/fastqc/{sample}_{ext}_fastqc.html", sample=config["samples"], ext=["F", "R"])						
 		# expand(RESULTS_PATH+"/qorts/{sample}.firstStrand.counts", sample=config["samples"]),
 		# expand(RESULTS_PATH+"/qorts/{sample}.secondStrand.counts", sample=config["samples"]),
 		# expand(RESULTS_PATH+"/coverage/{sample}.{strand}.bedGraph", sample=config["samples"], strand=["pos", "neg"])
 
-def proc_fastqc(inlist, outdir, outlist):
+def rename_out(inlist, suffix, outdir, outlist):
 	for i in range(len(inlist)):
-		os.system(" ".join(("fastqc --outdir", outdir, inlist[i])))
 		base_out = "/".join((outdir, os.path.basename(inlist[i])))
-		fqc_out = "_".join((base_out.partition(".")[0], "fastqc.html"))
-		zip_out = "_".join((base_out.partition(".")[0], "fastqc.zip"))
-		os.system(" ".join(("mv", fqc_out, outlist["html"][i])))
-		os.system(" ".join(("mv", zip_out, outlist["gzip"][i])))
+		temp_out = "".join((base_out.partition(".")[0], suffix[i]))
+		print(" ".join(("mv", temp_out, outlist[i])))
+		os.system(" ".join(("mv", temp_out, outlist[i])))
 
 rule fastqc_se_pre:
 	input:
@@ -52,12 +50,9 @@ rule fastqc_se_pre:
 	threads:
 		1
 	run:
-		proc_fastqc(input["fastq"], params["outdir"], output)
-
-		# shell("fastqc -t {threads} {input.fastq} --outdir {params.outdir} 2>&1 > {log}")
-		# fastqc_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input[0])))
-		# fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
-		# shell("mv {fastqc_out} {output.html}")
+		shell("fastqc -t {threads} {input.fastq} --outdir {params.outdir} 2>&1 > {log}")
+		rename_out(input["fastq"], ["_fastqc.html"], params["outdir"], output['html'])
+		rename_out(input["fastq"], ["_fastqc.zip"], params["outdir"], output['gzip'])
 
 rule fastqc_pe_pre:
 	input:
@@ -68,34 +63,20 @@ rule fastqc_pe_pre:
 	params:
 		outdir=RESULTS_PATH+"/fastqc-pre",
 		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
+	log:
+		RESULTS_PATH+"/logs/fastqc-pre/{sample}.txt"
 	threads:
-		1
+		2
 	run:
-		proc_fastqc(input["fastq"], params["outdir"], output)
-
-		# shell("fastqc -t {threads} --outdir {params.outdir} {input.fastq}")
-		# fastqc_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][0])))
-		# fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
-		# fastqc_html = output["html"][0]
-		# shell("mv {fastqc_out} {fastqc.html}")
-		# fastqc_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][1])))
-		# fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
-		# fastqc_html = output["html"][1]
-		# shell("mv {fastqc_out} {fastqc.html}")
-		# zip_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][0])))
-		# zip_out = "_".join((zip_out.partition(".")[0], "fastqc.zip"))
-		# fastqc_gzip = output["gzip"][0]
-		# shell("mv {zip_out} {fastqc.gzip}")
-		# zip_out = "/".join((RESULTS_PATH+"/fastqc-pre", os.path.basename(input["fastq"][1])))
-		# zip_out = "_".join((zip_out.partition(".")[0], "fastqc.zip"))
-		# fastqc_gzip = output["gzip"][1]
-		# shell("mv {zip_out} {fastqc.gzip}")
+		shell("fastqc -t {threads} --outdir {params.outdir} {input.fastq}")
+		rename_out(input["fastq"], ["_fastqc.html"], params["outdir"], output['html'])
+		rename_out(input["fastq"], ["_fastqc.zip"], params["outdir"], output['gzip'])
 
 rule trimgalore_se:
 	input:
-		lambda wildcards: config["samples"][wildcards.sample]
+		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
-		temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["S"]))
+		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["S"]))
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
 		outdir=RESULTS_PATH+"/trim_galore",
@@ -103,10 +84,11 @@ rule trimgalore_se:
 	log:
 		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt",
 	run:
-		shell("trim_galore {params.basic} {params.paired} -o {params.outdir} {input.fastq} &> {log}")
-		trimmed_out = "/".join((RESULTS_PATH+"/trim_galore", os.path.basename(input["fastq"][0])))
-		trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_1.fq.gz"))
-		shell("mv {trimmed_out} {output}")
+		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
+		rename_out(input["fastq"], ["_trimmed.fq.gz"], params["outdir"], output['fastq'])
+		# trimmed_out = "/".join((RESULTS_PATH+"/trim_galore", os.path.basename(input["fastq"][0])))
+		# trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_1.fq.gz"))
+		# shell("mv {trimmed_out} {output}")
 
 rule trimgalore_pe:
 	input:
@@ -114,59 +96,29 @@ rule trimgalore_pe:
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]))
 	params:
-		basic="-q 20 --gzip --length 16 --no_report_file",
-		paired="--paired --trim1",
+		basic="-q 20 --gzip --length 16 --no_report_file --paired --trim1",
 		outdir=RESULTS_PATH+"/trim_galore",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
-		unfix=RESULTS_PATH+"/logs/discard_unfixable/{sample}.txt",
-		trimg=RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt"
+		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt"
 	run:
-		in1 = input["fastq"][0] 
-		in2 = input["fastq"][1]
-		shell("perl run_rcorrector.pl -t {threads} -od {output} -1 {in1} -2 {in2}")
-		in1 = "/".join(output["outdir"], os.path.basename(in1).partition(".")[0]+".cor.fq.gz")
-		in2 = "/".join(output["outdir"], os.path.basename(in2).partition(".")[0]+".cor.fq.gz")
-		shell("python FilterUncorrectabledPEfastq.py -t {threads} -o filter_unfixable -1 {in1} -2 {in2} 2>&1 {log.unfix}")
-
-		shell("trim_galore {params.basic} {params.paired} -o {params.outdir} {input.fastq} &> {log.trimg}")
-		trimmed_out = "/".join((RESULTS_PATH+"/trim_galore", os.path.basename(input["fastq"][0])))
-		trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_1.fq.gz"))
-		final_out = output["fastq"][0]
-		shell("mv {trimmed_out} {final_out}")
-		trimmed_out = "/".join(("trim_galore", os.path.basename(input["fastq"][1])))
-		trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_2.fq.gz"))
-		final_out = output["fastq"][1]
-		shell("mv {trimmed_out} {final_out}")
-
-rule rcorrector:
-	input:
-		fastq=lambda wildcards: config["samples"][wildcards.sample]
-	output:
-		temp(expand(RESULTS_PATH+"rCorrector/{{sample}}_{ext}.cor.fq.gz", ext=["1", "2"]))
-	threads:
-		8
-	run:
-		in1 = input["fastq"][0] 
-		in2 = input["fastq"][1]
-		shell("perl run_rcorrector.pl -t {threads} -od {output} -1 {in1} -2 {in2}")
-
-rule discard_unfixable:
-	input:
-		fastq=expand(RESULTS_PATH+"rCorrector/{{sample}}_{ext}.cor.fq.gz", ext=["1", "2"])
-	output:
-		temp("filter_unfixable/{sample}_fixed.fq.gz")
-	log:
-		log="logs/filter_unfixable/{sample}.txt"
-	threads:
-		1
-	shell:
-		"python FilterUncorrectabledPEfastq.py -t {threads} -o filter_unfixable -1 {input.F} -2 {input.R} 2>&1 {log}"
-
-
-
-
-
+		# in1 = input["fastq"][0] 
+		# in2 = input["fastq"][1]
+		# shell("perl run_rcorrector.pl -t {threads} -od {output} -1 {in1} -2 {in2}")
+		# in1 = "/".join(output["outdir"], os.path.basename(in1).partition(".")[0]+".cor.fq.gz")
+		# in2 = "/".join(output["outdir"], os.path.basename(in2).partition(".")[0]+".cor.fq.gz")
+		# shell("python FilterUncorrectabledPEfastq.py -t {threads} -o filter_unfixable -1 {in1} -2 {in2} 2>&1 {log.unfix}")
+		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
+		rename_out(input["fastq"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
+		# shell("trim_galore {params.basic} {params.paired} -o {params.outdir} {input.fastq} &> {log.trimg}")
+		# trimmed_out = "/".join((RESULTS_PATH+"/trim_galore", os.path.basename(input["fastq"][0])))
+		# trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_1.fq.gz"))
+		# final_out = output["fastq"][0]
+		# shell("mv {trimmed_out} {final_out}")
+		# trimmed_out = "/".join(("trim_galore", os.path.basename(input["fastq"][1])))
+		# trimmed_out = "_".join((trimmed_out.partition(".")[0], "val_2.fq.gz"))
+		# final_out = output["fastq"][1]
+		# shell("mv {trimmed_out} {final_out}")
 
 rule index_rRNA_tRNA:
 	input:
@@ -184,41 +136,86 @@ rule index_rRNA_tRNA:
 	shell:
 		"bowtie2-build --threads {threads} {input} {params.basename} &> {log}"
 
-rule remove_rRNA_tRNA:
+rule remove_rRNA_tRNA_se:
 	input:
-		fastq=RESULTS_PATH+"/trim_galore/{sample}_trimmed.fq.gz",
+		fastq=expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["S"]),
 		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		una=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz"),
-		aln=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"),
+		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["S"])),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
+		basic="--sensitive-local",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
-		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.log"
+		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
 		8
 	shell:
-		"bowtie2 --sensitive-local --threads {threads} --un-gz {output.una} --al-gz {output.aln} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 2>&1 > {output.tmp}"
+		"bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp}"
 
-rule fastqc_post:
+rule remove_rRNA_tRNA_pe:
 	input:
-		RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_aligned.fq.gz"		
+		fastq=expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]),
+		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
+		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		RESULTS_PATH+"/fastqc-post/{sample}_fastqc.html"
+		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
+		tmp=temp("rRNA_tRNA_removed/{sample}.tmp")
 	params:
-		outdir=" fastqc-post",
-		cluster='-N 1 -c 4 --mem=8G -t 160:00:00'
+		basic="--sensitive-local",
+		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}.fq.gz",
+		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
+		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
+	log:
+		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
+	threads:
+		8
+	run:
+		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {} -2 {} 1> {output.tmp}".format(*input["fastq"]))
+		rename_out([params["outname"], params["outname"]], [".1.gz", ".2.gz"], params["outdir"], output['fastq'])	
+		# fq_out = ".".join((output["fastq"].partition(".gz")[0], "1.gz"))
+		# final_out = output["pairs"][0]
+		# shell("mv {fq_out} {final_out}")
+		# fq_out = ".".join((output["fastq"].partition(".gz")[0], "2.gz"))
+		# final_out = output["pairs"][1]
+		# shell("mv {fq_out} {final_out}")
+
+rule fastqc_se_post:
+	input:
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["S"])
+	output:
+		html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["S"]),
+		gzip=temp(expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.zip", ext=["S"]))
+	params:
+		outdir=RESULTS_PATH+"/fastqc-post",
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
 	log:
 		RESULTS_PATH+"/logs/fastqc-post/{sample}.txt"
 	threads:
-		4
+		1
 	run:
-		shell("fastqc -t {threads} {input} --outdir {params.outdir} 2>&1 > {log}")
-		fastqc_out = "/".join((RESULTS_PATH+"fastqc-post", os.path.basename(input[0])))
-		fastqc_out = "_".join((fastqc_out.partition(".")[0], "fastqc.html"))
-		shell("mv {fastqc_out} {output}")
+		shell("fastqc -t {threads} {input.fastq} --outdir {params.outdir} 2>&1 > {log}")
+		rename_out(input["fastq"], ["_fastqc.html"], params["outdir"], output['html'])
+		rename_out(input["fastq"], ["_fastqc.zip"], params["outdir"], output['gzip'])
+
+rule fastqc_pe_post:
+	input:
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])
+	output:
+		html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
+		gzip=temp(expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"]))
+	params:
+		outdir=RESULTS_PATH+"/fastqc-post",
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
+	log:
+		RESULTS_PATH+"/logs/fastqc-post/{sample}.txt"
+	threads:
+		2
+	run:
+		shell("fastqc -t {threads} --outdir {params.outdir} {input.fastq}")
+		rename_out(input["fastq"], ["_fastqc.html"], params["outdir"], output['html'])
+		rename_out(input["fastq"], ["_fastqc.zip"], params["outdir"], output['gzip'])
 
 # rule remove_overrepresented:
 # 	input:
