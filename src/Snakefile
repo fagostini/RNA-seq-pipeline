@@ -297,7 +297,7 @@ def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bi
 
 rule map_star_se:
 	input:
-		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_trimmed.fq.gz", ext=["SE"]),
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"]),
 		index="genome/STAR_GRCh38_v27/SAindex",
 		genome="genome/STAR_GRCh38_v27",
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
@@ -361,7 +361,7 @@ rule map_star_se:
 
 rule map_star_pe:
 	input:
-		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]),
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
 		index="genome/STAR_GRCh38_v27/SAindex",
 		genome="genome/STAR_GRCh38_v27",
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
