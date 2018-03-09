@@ -23,8 +23,9 @@ def platform_info():
 rule all:
 	input:
 		expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] )),
-		expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] ))
-		# expand(RESULTS_PATH+"/fastqc/{sample}_fastqc.html", sample=config["samples"]) if len(config["samples"]) == 1 else expand(RESULTS_PATH+"/fastqc/{sample}_{ext}_fastqc.html", sample=config["samples"], ext=["F", "R"])						
+		# expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] )),
+		# expand(RESULTS_PATH+"/rRNA_tRNA_removed/{}_{}_rRNA_tRNA_removed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] ))
+		expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["S"] ))
 		# expand(RESULTS_PATH+"/qorts/{sample}.firstStrand.counts", sample=config["samples"]),
 		# expand(RESULTS_PATH+"/qorts/{sample}.secondStrand.counts", sample=config["samples"]),
 		# expand(RESULTS_PATH+"/coverage/{sample}.{strand}.bedGraph", sample=config["samples"], strand=["pos", "neg"])
@@ -32,7 +33,7 @@ rule all:
 def rename_out(inlist, suffix, outdir, outlist):
 	for i in range(len(inlist)):
 		base_out = "/".join((outdir, os.path.basename(inlist[i])))
-		temp_out = "".join((base_out.partition(".")[0], suffix[i]))
+		temp_out = "".join((base_out.partition(".")[0], suffix[0] if len(suffix)==1 else suffix[i]))
 		print(" ".join(("mv", temp_out, outlist[i])))
 		os.system(" ".join(("mv", temp_out, outlist[i])))
 
@@ -142,7 +143,8 @@ rule remove_rRNA_tRNA_se:
 		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["S"])),
+		# fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["S"])),
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["S"]),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
@@ -152,7 +154,7 @@ rule remove_rRNA_tRNA_se:
 	threads:
 		8
 	shell:
-		"bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp}"
+		"bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp} 2> {log}"
 
 rule remove_rRNA_tRNA_pe:
 	input:
@@ -160,11 +162,12 @@ rule remove_rRNA_tRNA_pe:
 		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
+		# fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
 		tmp=temp("rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
-		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}.fq.gz",
+		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.fq.gz",
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
@@ -172,14 +175,10 @@ rule remove_rRNA_tRNA_pe:
 	threads:
 		8
 	run:
-		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {} -2 {} 1> {output.tmp}".format(*input["fastq"]))
-		rename_out([params["outname"], params["outname"]], [".1.gz", ".2.gz"], params["outdir"], output['fastq'])	
-		# fq_out = ".".join((output["fastq"].partition(".gz")[0], "1.gz"))
-		# final_out = output["pairs"][0]
-		# shell("mv {fq_out} {final_out}")
-		# fq_out = ".".join((output["fastq"].partition(".gz")[0], "2.gz"))
-		# final_out = output["pairs"][1]
-		# shell("mv {fq_out} {final_out}")
+		fq1 = input["fastq"][0] 
+		fq2 = input["fastq"][1] 
+		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
+		rename_out([params["outname"], params["outname"]], [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])	
 
 rule fastqc_se_post:
 	input:
@@ -265,34 +264,56 @@ rule index_star:
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
 	threads:
 		8
-	shell:
-		"""
-		STAR --runMode genomeGenerate --runThreadN {threads} --genomeDir {params.prefix} --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annotation} {params.overhang}
-		gzip genome/GRCh38.primary_assembly.genome.fa
-		gzip annotation/gencode.v27.annotation.gtf
-		"""
+	run:
+		shell("STAR --runMode genomeGenerate --runThreadN {threads} --genomeDir {params.prefix} --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annotation} {params.overhang}")
+		shell("gzip {input.genome}")
+		shell("gzip {input.annotation}")
 
-rule map_star:
+def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bigw):
+	df = pd.read_table(counts, sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
+	df = df.filter(regex="^(?!N_)", axis=0, ).sum()
+
+	with open(outfile, "w") as of:
+		if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
+			of.write("FirstStrand")
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+			# print("FirstStrand")
+		elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
+			of.write("SecondStrand")
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
+			# print("SecondStrand")
+		else:
+			of.write("Unstranded")
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+			# print("Unstranded")
+	shell(" ".join((exe_path+"/bigWigMerge", *biglist, bedg)))
+	shell(" ".join((exe_path+"/bedGraphToBigWig", bedg, chrmlen, bigw)))
+
+	return(0)
+
+rule map_star_se:
 	input:
-		fastq=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.rRNA_tRNA_removed.fq.gz",
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_trimmed.fq.gz", ext=["S"]),
 		index="genome/STAR_GRCh38_v27/SAindex",
 		genome="genome/STAR_GRCh38_v27",
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 
 	output:
-		bam=temp(RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam"),
-		cnt=RESULTS_PATH+"/mapped/{sample}.ReadsPerGene.out.tab",
-		jct=RESULTS_PATH+"/mapped/{sample}.SJ.out.tab",
-		std=RESULTS_PATH+"/mapped/{sample}.StrandCheck.out.tab",
-		wi1=temp(RESULTS_PATH+"/mapped/{sample}.Signal.Unique.str1.out.wig"),
-		wi2=temp(RESULTS_PATH+"/mapped/{sample}.Signal.Unique.str2.out.wig"),
-		bwp=RESULTS_PATH+"/coverage/{sample}_plus.bigwig",
-		bwn=RESULTS_PATH+"/coverage/{sample}_minus.bigwig",
-		bgu=temp(RESULTS_PATH+"/coverage/{sample}.bedGraph"),
-		bwu=RESULTS_PATH+"/coverage/{sample}.bigwig",
-		log=RESULTS_PATH+"/logs/map_star/{sample}.Log.final.out"
+		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["S"])),
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["S"]),
+		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["S"]),
+		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["S"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["S"]),
+		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["S"], num=["1", "2"])),
+		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["S"], typ=["plus", "minus"]),
+		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["S"])),
+		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["S"]),
+		log=expand(RESULTS_PATH+"/logs/map_star/{{sample}}_{ext}.Log.final.out", ext=["S"])
 	params:
-		outprefix="mapped/{sample}.",
+		outprefix=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.", ext=["S"]),
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
 		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
 		dna="--alignIntronMax 1 --alignMatesGapMax 300",
@@ -304,37 +325,104 @@ rule map_star:
 		8
 	run:
 		if config['seq_type'] == "RNAseq":
-			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.rna} {params.output} &> {log}")
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.rna} {params.output}")
 
-			df = pd.read_table(output['cnt'], sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
-			df = df.filter(regex="^(?!N_)", axis=0, ).sum()
+			create_bigWig(platform_info(), output["cnt"], output["std"], output["wig"], input["chrmlen"], output["bwi"], output["bgu"], output["bwu"])
 
-			exe_path = platform_info()+"/"
-			outfile = open(output['std'], "w")
-			if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
-				# outfile.write("FirstStrand")
-				shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
-				shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
-				print("FirstStrand")
-			elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
-				# outfile.write("SecondStrand")
-				shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwp}")
-				shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwn}")
-				print("SecondStrand")
-			else:
-				# outfile.write("Unstranded")
-				shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
-				shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
-				print("Unstranded")
+			# df = pd.read_table(output['cnt'], sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
+			# df = df.filter(regex="^(?!N_)", axis=0, ).sum()
 
-			shell(exe_path+"bigWigMerge {output.bwp} {output.bwn} {output.bgu}")
-			shell(exe_path+"bedGraphToBigWig {output.bgu} {input.chrmlen} {output.bwu}")
-			outfile.close()
+			# exe_path = platform_info()
+			# outfile = open(output['std'], "w")
+			# if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
+			# 	outfile.write("FirstStrand")
+			# 	shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
+			# 	shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
+			# 	# print("FirstStrand")
+			# elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
+			# 	outfile.write("SecondStrand")
+			# 	shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwp}")
+			# 	shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwn}")
+			# 	# print("SecondStrand")
+			# else:
+			# 	outfile.write("Unstranded")
+			# 	shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
+			# 	shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
+			# 	# print("Unstranded")
+			# outfile.close()
+			# shell(exe_path+"bigWigMerge {output.bwp} {output.bwn} {output.bgu}")
+			# shell(exe_path+"bedGraphToBigWig {output.bgu} {input.chrmlen} {output.bwu}")
 	
 		elif config['seq_type'] == "ChIPseq":
-			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.dna} {params.output} &> {log}")
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.dna} {params.output}")
 
 		shell("mv {log} {output.log}")
+
+rule map_star_pe:
+	input:
+		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]),
+		index="genome/STAR_GRCh38_v27/SAindex",
+		genome="genome/STAR_GRCh38_v27",
+		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+
+	output:
+		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["S"])),
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["P"]),
+		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["P"]),
+		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["P"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["P"]),
+		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["P"], num=["1", "2"])),
+		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["P"], typ=["plus", "minus"]),
+		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["P"])),
+		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["P"]),
+		log=expand(RESULTS_PATH+"/logs/map_star/{{sample}}_{ext}.Log.final.out", ext=["P"])
+	params:
+		outprefix=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.", ext=["P"]),
+		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
+		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
+		dna="--alignIntronMax 1 --alignMatesGapMax 300",
+		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
+	log:
+		RESULTS_PATH+"/mapped/{sample}.Log.final.out"
+	threads:
+		8
+	run:
+		if config['seq_type'] == "RNAseq":
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.rna} {params.output}")
+
+			create_bigWig(platform_info(), output["cnt"], output["std"], output["wig"], input["chrmlen"], output["bwi"], output["bgu"], output["bwu"])
+
+			# df = pd.read_table(output['cnt'], sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
+			# df = df.filter(regex="^(?!N_)", axis=0, ).sum()
+
+			# exe_path = platform_info()
+			# outfile = open(output['std'], "w")
+			# if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
+			# 	outfile.write("FirstStrand")
+			# 	shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
+			# 	shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
+			# 	# print("FirstStrand")
+			# elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
+			# 	outfile.write("SecondStrand")
+			# 	shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwp}")
+			# 	shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwn}")
+			# 	# print("SecondStrand")
+			# else:
+			# 	outfile.write("Unstranded")
+			# 	shell(exe_path+"wigToBigWig {output.wi1} {input.chrmlen} {output.bwp}")
+			# 	shell(exe_path+"wigToBigWig {output.wi2} {input.chrmlen} {output.bwn}")
+			# 	# print("Unstranded")
+			# outfile.close()
+			# shell(exe_path+"bigWigMerge {output.bwp} {output.bwn} {output.bgu}")
+			# shell(exe_path+"bedGraphToBigWig {output.bgu} {input.chrmlen} {output.bwu}")
+	
+		elif config['seq_type'] == "ChIPseq":
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {params.outprefix} {params.alignemnt} {params.dna} {params.output}")
+
+		shell("mv {log} {output.log}")
+
+
 
 rule sambamba_index:
 	input:
