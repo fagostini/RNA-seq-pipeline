@@ -312,16 +312,14 @@ rule map_star_se:
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"]),
-		log=expand(RESULTS_PATH+"/logs/map_star/{{sample}}_{ext}.Log.final.out", ext=["SE"])
+		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["SE"])
 	params:
 		outdir=RESULTS_PATH+"/mapped",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
 		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
 		dna="--alignIntronMax 1 --alignMatesGapMax 300",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
-		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
-	log:
-		RESULTS_PATH+"/mapped/{{sample}}.Log.final.out"
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'		
 	threads:
 		8
 	run:
@@ -358,7 +356,7 @@ rule map_star_se:
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output}")
 
-		shell("mv {log} {output.log}")
+		# shell("mv {log} {output.log}")
 
 rule map_star_pe:
 	input:
@@ -377,7 +375,7 @@ rule map_star_pe:
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["PE"], typ=["plus", "minus"]),
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["PE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"]),
-		log=expand(RESULTS_PATH+"/logs/map_star/{{sample}}_{ext}.Log.final.out", ext=["PE"])
+		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["PE"])
 	params:
 		outdir=RESULTS_PATH+"/mapped",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
@@ -385,8 +383,6 @@ rule map_star_pe:
 		dna="--alignIntronMax 1 --alignMatesGapMax 300",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
-	log:
-		RESULTS_PATH+"/mapped/{{sample}}.Log.final.out"
 	threads:
 		8
 	run:
@@ -423,7 +419,7 @@ rule map_star_pe:
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output}")
 
-		shell("mv {log} {output.log}")
+		# shell("mv {log} {output.log}")
 
 
 
