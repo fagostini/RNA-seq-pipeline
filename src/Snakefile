@@ -321,7 +321,7 @@ rule map_star_se:
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
 	log:
-		RESULTS_PATH+"/mapped/{sample}.Log.final.out"
+		RESULTS_PATH+"/mapped/{{sample}}.Log.final.out"
 	threads:
 		8
 	run:
@@ -385,7 +385,7 @@ rule map_star_pe:
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
 	log:
-		RESULTS_PATH+"/mapped/{sample}.Log.final.out"
+		RESULTS_PATH+"/mapped/{{sample}}.Log.final.out"
 	threads:
 		8
 	run:
