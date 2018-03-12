@@ -327,7 +327,7 @@ rule map_star_se:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output}")
 
-			create_bigWig(platform_info(), output["cnt"], output["std"], output["wig"], input["chrmlen"], output["bwi"], output["bgu"], output["bwu"])
+			create_bigWig(platform_info(), output["cnt"][0], output["std"][0], output["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
 
 			# df = pd.read_table(output['cnt'], sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
 			# df = df.filter(regex="^(?!N_)", axis=0, ).sum()
@@ -390,7 +390,7 @@ rule map_star_pe:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output}")
 
-			create_bigWig(platform_info(), output["cnt"], output["std"], output["wig"], input["chrmlen"], output["bwi"], output["bgu"], output["bwu"])
+			create_bigWig(platform_info(), output["cnt"][0], output["std"][0], output["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
 
 			# df = pd.read_table(output['cnt'], sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
 			# df = df.filter(regex="^(?!N_)", axis=0, ).sum()
