@@ -323,7 +323,7 @@ rule map_star_se:
 	threads:
 		8
 	run:
-		prefix = "/".join((params["outdir"], os.path.basename(output["bam"]).partition(".")[0]))
+		prefix = "/".join((params["outdir"], os.path.basename(output["bam"][0]).partition(".")[0]))
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output}")
 
@@ -386,7 +386,7 @@ rule map_star_pe:
 	threads:
 		8
 	run:
-		prefix = "/".join((params["outdir"], os.path.basename(output["bam"]).partition(".")[0]))
+		prefix = "/".join((params["outdir"], os.path.basename(output["bam"][0]).partition(".")[0]))
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output}")
 
