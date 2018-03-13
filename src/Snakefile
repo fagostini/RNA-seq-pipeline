@@ -259,36 +259,12 @@ rule index_star:
 		shell("gzip {input.genome}")
 		shell("gzip {input.annotation}")
 
-def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bigw):
-	df = pd.read_table(counts, sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
-	df = df.filter(regex="^(?!N_)", axis=0, ).sum()
-
-	with open(outfile, "w") as of:
-		if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
-			of.write("FirstStrand")
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
-		elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
-			of.write("SecondStrand")
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
-		else:
-			of.write("Unstranded")
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
-
-	shell(" ".join((exe_path+"/bigWigMerge", *biglist, bedg)))
-	shell(" ".join((exe_path+"/bedGraphToBigWig", bedg, chrmlen, bigw)))
-
-	return(0)
-
 rule map_star_se:
 	input:
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"]),
 		index="genome/STAR_GRCh38_v27/SAindex",
 		genome="genome/STAR_GRCh38_v27",
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
-
 	output:
 		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])),
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
@@ -312,7 +288,7 @@ rule map_star_se:
 	threads:
 		8
 	run:
-		prefix = "/".join((params["outdir"], os.path.basename(output["bam"][0]).partition(".")[0]))
+		prefix = "/".join((params["outdir"], os.path.basename(output["bam"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 
@@ -327,7 +303,6 @@ rule map_star_pe:
 		index="genome/STAR_GRCh38_v27/SAindex",
 		genome="genome/STAR_GRCh38_v27",
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
-
 	output:
 		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])),
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
@@ -351,7 +326,7 @@ rule map_star_pe:
 	threads:
 		8
 	run:
-		prefix = "/".join((params["outdir"], os.path.basename(output["bam"][0]).partition(".")[0]))
+		prefix = "/".join((params["outdir"], os.path.basename(output["bam"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 
@@ -359,6 +334,29 @@ rule map_star_pe:
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
+
+def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bigw):
+	df = pd.read_table(counts, sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
+	df = df.filter(regex="^(?!N_)", axis=0, ).sum()
+
+	with open(outfile, "w") as of:
+		if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
+			of.write("FirstStrand")
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+		elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
+			of.write("SecondStrand")
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
+		else:
+			of.write("Unstranded")
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+
+	shell(" ".join((exe_path+"/bigWigMerge", *biglist, bedg)))
+	shell(" ".join((exe_path+"/bedGraphToBigWig", bedg, chrmlen, bigw)))
+
+	return(0)
 
 rule wigToBigWig_se:
 	input:
