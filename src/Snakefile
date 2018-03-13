@@ -398,6 +398,56 @@ rule wigToBigWig_pe:
 	run:
 		create_bigWig(platform_info(), input["cnt"][0], output["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
 
+run stringtie_se:
+	input:
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
+		annotation="annotation/gencode.v27.annotation.gtf"
+	output:
+		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["SE"]),
+		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"])
+	params:
+		basic="-f 0.2 -m 200 -a 10 -j 3 -C "
+	log:
+		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["SE"])
+	threads:
+		8
+	run:
+		with open(input["std"], "r") as infile:
+			first_line = infile.readline()
+		if first_line == "FirstStrand":
+			strand = "--rf"
+		elif first_line == "SecondStrand":
+			strand = "--fr"
+		else:
+			strand = ""	
+		shell(platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+
+run stringtie_pe:
+	input:
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
+		annotation="annotation/gencode.v27.annotation.gtf"
+	output:
+		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["PE"]),
+		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"])
+	params:
+		basic="-f 0.2 -m 200 -a 10 -j 3 -C "
+	log:
+		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["PE"])
+	threads:
+		8
+	run:
+		with open(input["std"], "r") as infile:
+			first_line = infile.readline()
+		if first_line == "FirstStrand":
+			strand = "--rf"
+		elif first_line == "SecondStrand":
+			strand = "--fr"
+		else:
+			strand = ""	
+		shell(platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+
 rule sambamba_index:
 	input:
 		RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam"
