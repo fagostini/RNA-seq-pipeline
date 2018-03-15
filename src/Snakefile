@@ -519,32 +519,32 @@ rule create_flatGFF:
 # 		genomeCoverageBed {params.bt} -strand - -ibam {input.bamfile} -g {input.genomeSize} > {output.negative}
 # 		"""
 
-rule report:
-    input:
-        preqc=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		# expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		# expand(RESULTS_PATH+"/rRNA_tRNA_removed/{}_{}_rRNA_tRNA_removed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] ))
-		postqc=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+# rule report:
+#     input:
+#         preqc=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
+# 		# expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
+# 		# expand(RESULTS_PATH+"/rRNA_tRNA_removed/{}_{}_rRNA_tRNA_removed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] ))
+# 		postqc=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
+# 		bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+# 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+# 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 
-    output:
-    	table="sample_table.tsv",
-        html="report.html"
-    run:
-    	with
-        from snakemake.utils import report
-        with open(input[0]) as vcf:
-            n_calls = sum(1 for l in vcf if not l.startswith("#"))
+#     output:
+#     	table="sample_table.tsv",
+#         html="report.html"
+#     run:
+#     	with
+#         from snakemake.utils import report
+#         with open(input[0]) as vcf:
+#             n_calls = sum(1 for l in vcf if not l.startswith("#"))
 
-        report("""
-        An example variant calling workflow
-        ===================================
+#         report("""
+#         An example variant calling workflow
+#         ===================================
 
-        Reads were mapped to the Yeast
-        reference genome and variants were called jointly with
-        SAMtools/BCFtools.
+#         Reads were mapped to the Yeast
+#         reference genome and variants were called jointly with
+#         SAMtools/BCFtools.
 
-        This resulted in {n_calls} variants (see Table T1_).
-        """, output[0], T1=input[0])
+#         This resulted in {n_calls} variants (see Table T1_).
+#         """, output[0], T1=input[0])
