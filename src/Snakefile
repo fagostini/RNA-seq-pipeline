@@ -26,11 +26,10 @@ rule all:
 		# expand(RESULTS_PATH+"/trim_galore/{}_{}_trimmed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
 		# expand(RESULTS_PATH+"/rRNA_tRNA_removed/{}_{}_rRNA_tRNA_removed.fq.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] ))
 		expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		# expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
-		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
-		# expand(RESULTS_PATH+"/qorts/{sample}.firstStrand.counts", sample=config["samples"]),
-		# expand(RESULTS_PATH+"/qorts/{sample}.secondStrand.counts", sample=config["samples"]),
-		# expand(RESULTS_PATH+"/coverage/{sample}.{strand}.bedGraph", sample=config["samples"], strand=["pos", "neg"])
+		expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+
 
 def rename_out(inlist, suffix, outdir, outlist):
 	for i in range(len(inlist)):
@@ -134,7 +133,7 @@ rule remove_rRNA_tRNA_se:
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
 		# fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
-		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"]),
+		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
@@ -153,7 +152,7 @@ rule remove_rRNA_tRNA_pe:
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
 		# fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
-		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
+		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
@@ -272,6 +271,7 @@ rule map_star_se:
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["SE"]),
 		# std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
+		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
 		# bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
 		# bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
 		# bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"]),
@@ -310,6 +310,7 @@ rule map_star_pe:
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["PE"]),
 		# std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
+		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
 		# bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["PE"], typ=["plus", "minus"]),
 		# bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["PE"])),
 		# bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"]),
@@ -398,7 +399,7 @@ rule wigToBigWig_pe:
 	run:
 		create_bigWig(platform_info(), input["cnt"][0], output["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
 
-run stringtie_se:
+rule stringtie_se:
 	input:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
@@ -407,7 +408,8 @@ run stringtie_se:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["SE"]),
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"])
 	params:
-		basic="-f 0.2 -m 200 -a 10 -j 3 -C "
+		basic="-f 0.2 -m 200 -a 10 -j 3 -C",
+		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -420,10 +422,10 @@ run stringtie_se:
 		elif first_line == "SecondStrand":
 			strand = "--fr"
 		else:
-			strand = ""	
-		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+			strand = ""
+		# shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
 
-run stringtie_pe:
+rule stringtie_pe:
 	input:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
@@ -432,7 +434,8 @@ run stringtie_pe:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["PE"]),
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"])
 	params:
-		basic="-f 0.2 -m 200 -a 10 -j 3 -C "
+		basic="-f 0.2 -m 200 -a 10 -j 3 -C ",
+		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
@@ -446,7 +449,7 @@ run stringtie_pe:
 			strand = "--fr"
 		else:
 			strand = ""	
-		shell(platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
 
 rule sambamba_index:
 	input:
