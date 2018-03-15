@@ -332,8 +332,8 @@ def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bi
 			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
 
 	shell(" ".join(("executables/"+exe_path+"/bigWigMerge", *biglist, bedg)))
-	shell(" ".join(("LC_COLLATE=C sort -k1,1 -k2,2n", bedg, ">" (os.path.splitext(bedg)[0]+"sorted"))))
-	shell(" ".join(("mv", os.path.splitext(bedg)[0]+"sorted", bedg)))
+	shell(" ".join(("LC_COLLATE=C sort -k1,1 -k2,2n", bedg, ">", os.path.splitext(bedg)[0]+".sorted")))
+	shell(" ".join(("mv", os.path.splitext(bedg)[0]+".sorted", bedg)))
 	shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedg, chrmlen, bigw)))
 
 	return(0)
