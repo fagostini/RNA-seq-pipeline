@@ -342,19 +342,19 @@ def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bi
 	with open(outfile, "w") as of:
 		if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
 			of.write("FirstStrand")
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
 		elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
 			of.write("SecondStrand")
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
+			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
+			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
 		else:
 			of.write("Unstranded")
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-			shell(" ".join((exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
 
-	shell(" ".join((exe_path+"/bigWigMerge", *biglist, bedg)))
-	shell(" ".join((exe_path+"/bedGraphToBigWig", bedg, chrmlen, bigw)))
+	shell(" ".join(("executables/"+exe_path+"/bigWigMerge", *biglist, bedg)))
+	shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedg, chrmlen, bigw)))
 
 	return(0)
 
@@ -421,7 +421,7 @@ run stringtie_se:
 			strand = "--fr"
 		else:
 			strand = ""	
-		shell(platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
 
 run stringtie_pe:
 	input:
