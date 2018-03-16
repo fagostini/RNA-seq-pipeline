@@ -11,7 +11,7 @@ import string
 configfile: 'config.yaml'
 
 # Import paths from config file
-workdir: config['snakemake_path']
+PATH: config['snakemake_path']
 RESULTS_PATH = config['results_path']
 GENOME_PATH = config['genome_path']
 ANNOTATION_PATH = config['annotation_path']
@@ -73,6 +73,7 @@ rule fastqc_pe_pre:
 
 rule trimgalore_se:
 	input:
+		html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["SE"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["SE"]))
@@ -88,6 +89,7 @@ rule trimgalore_se:
 
 rule trimgalore_pe:
 	input:
+		html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]))
@@ -235,8 +237,23 @@ rule index_star:
 		# shell("gzip {input.genome}")
 		# shell("gzip {input.annotation}")
 
+def define_strand(counts, outfile):
+	df = pd.read_table(counts, sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
+	df = df.filter(regex="^(?!N_)", axis=0, ).sum()
+
+	with open(outfile, "w") as of:
+		if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
+			of.write("FirstStrand")
+		elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
+			of.write("SecondStrand")
+		else:
+			of.write("Unstranded")
+
+	return(0)
+
 rule map_star_se:
 	input:
+		html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["SE"]),
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"]),
 		genome=STAR_INDEX_PATH,
 		index=STAR_INDEX_PATH+"/SAindex",
@@ -246,7 +263,7 @@ rule map_star_se:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["SE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["SE"]),
-		# std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
 		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
 		# bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
@@ -269,13 +286,14 @@ rule map_star_se:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 
-			# create_bigWig(platform_info(), output["cnt"][0], output["std"][0], output["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
+			define_strand(output["cnt"][0], output["std"][0])
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 
 rule map_star_pe:
 	input:
+		html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
 		genome=STAR_INDEX_PATH,
 		index=STAR_INDEX_PATH+"/SAindex",
@@ -285,7 +303,7 @@ rule map_star_pe:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["PE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["PE"]),
-		# std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
 		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
 		# bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["PE"], typ=["plus", "minus"]),
@@ -308,28 +326,23 @@ rule map_star_pe:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 
-			# create_bigWig(platform_info(), output["cnt"][0], output["std"][0], output["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
+			define_strand(output["cnt"][0], output["std"][0])
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 
-def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bigw):
-	df = pd.read_table(counts, sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
-	df = df.filter(regex="^(?!N_)", axis=0, ).sum()
-
-	with open(outfile, "w") as of:
-		if df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) > 0.55 :
-			of.write("FirstStrand")
-			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
-		elif df['FirstStrand']/(df['FirstStrand']+df['SecondStrand']) < 0.45 :
-			of.write("SecondStrand")
-			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
-			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
-		else:
-			of.write("Unstranded")
-			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-			shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+def create_bigWig(exe_path, stdfile, wiglist, chrmlen, biglist, bedg, bigw):
+	with open(stdfile, "r") as infile:
+		first_line = infile.readline()
+	if first_line == "FirstStrand":
+		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+	elif first_line == "SecondStrand":
+		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
+		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
+	else:
+		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
+		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
 
 	shell(" ".join(("executables/"+exe_path+"/bigWigMerge", *biglist, bedg)))
 	shell(" ".join(("LC_COLLATE=C sort -k1,1 -k2,2n", bedg, ">", os.path.splitext(bedg)[0]+".sorted")))
@@ -341,10 +354,10 @@ def create_bigWig(exe_path, counts, outfile, wiglist, chrmlen, biglist, bedg, bi
 rule wigToBigWig_se:
 	input:
 		wig=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"]),
-		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["SE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 	output:
-		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
+		# std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"])
@@ -355,15 +368,14 @@ rule wigToBigWig_se:
 	threads:
 		1
 	run:
-		create_bigWig(platform_info(), input["cnt"][0], output["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
+		create_bigWig(platform_info(), input["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
 
 rule wigToBigWig_pe:
 	input:
 		wig=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"]),
-		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["PE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 	output:
-		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["PE"], typ=["plus", "minus"]),
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["PE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"])
@@ -374,13 +386,13 @@ rule wigToBigWig_pe:
 	threads:
 		1
 	run:
-		create_bigWig(platform_info(), input["cnt"][0], output["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
+		create_bigWig(platform_info(), input["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
 
 rule stringtie_se:
 	input:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
-		annotation=os.path.splitext(config["annotation_path"])[0] if os.path.splitext(config["annotation_path"])[1] == ".gz" else config["annotation_path"]
+		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["SE"]),
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"])
@@ -400,13 +412,13 @@ rule stringtie_se:
 			strand = "--fr"
 		else:
 			strand = ""
-		# shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
 
 rule stringtie_pe:
 	input:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
-		annotation=os.path.splitext(config["annotation_path"])[0] if os.path.splitext(config["annotation_path"])[1] == ".gz" else config["annotation_path"]
+		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["PE"]),
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"])
@@ -516,9 +528,7 @@ rule create_flatGFF:
 
 rule report:
 	input:
-		preqc=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		postqc=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		# bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
