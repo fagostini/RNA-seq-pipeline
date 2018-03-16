@@ -395,9 +395,10 @@ rule stringtie_se:
 		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["SE"]),
-		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"])
+		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"]),
+		ref=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.transcriptReference.txt", ext=["SE"])
 	params:
-		basic="-f 0.2 -m 200 -a 10 -j 3 -C",
+		basic="-f 0.2 -m 200 -a 10 -j 3",
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o {}/logs/stringtie.{{sample}}.%A.log'.format(RESULTS_PATH)
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["SE"])
@@ -412,7 +413,7 @@ rule stringtie_se:
 			strand = "--fr"
 		else:
 			strand = ""
-		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} -C {output.ref} {params.basic} > {log}")
 
 rule stringtie_pe:
 	input:
@@ -421,9 +422,10 @@ rule stringtie_pe:
 		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["PE"]),
-		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"])
+		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"]),
+		ref=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.transcriptReference.txt", ext=["PE"])
 	params:
-		basic="-f 0.2 -m 200 -a 10 -j 3 -C ",
+		basic="-f 0.2 -m 200 -a 10 -j 3",
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o {}/logs/stringtie.{{sample}}.%A.log'.format(RESULTS_PATH)
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["PE"])
@@ -438,7 +440,7 @@ rule stringtie_pe:
 			strand = "--fr"
 		else:
 			strand = ""	
-		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} -C {output.ref} {params.basic} > {log}")
 
 rule sambamba_index:
 	input:
