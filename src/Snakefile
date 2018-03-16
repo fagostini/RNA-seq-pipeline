@@ -535,6 +535,8 @@ rule report:
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
 		"report.html"
+	params:
+		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00'
 	run:
 		# pd.DataFrame({"FastQC (pre)" : preqc, "FastQC (post)": postqc, "BamFile" : bam, "BigWig": bigwig, "StringTie (GTF)", stringtie})
 
