@@ -404,7 +404,7 @@ rule stringtie_se:
 	threads:
 		8
 	run:
-		with open(input["std"], "r") as infile:
+		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
 			strand = "--rf"
@@ -430,7 +430,7 @@ rule stringtie_pe:
 	threads:
 		8
 	run:
-		with open(input["std"], "r") as infile:
+		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
 			strand = "--rf"
