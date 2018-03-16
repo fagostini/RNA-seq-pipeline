@@ -26,7 +26,7 @@ def platform_info():
 
 rule all:
 	input:
-		"report.html"
+		RESULTS_PATH+"report.html"
 
 def rename_out(inlist, suffix, outdir, outlist):
 	for i in range(len(inlist)):
@@ -534,7 +534,7 @@ rule report:
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
-		"report.html"
+		RESULTS_PATH+"report.html"
 	params:
 		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00'
 	run:
