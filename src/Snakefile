@@ -125,7 +125,6 @@ rule remove_rRNA_tRNA_se:
 		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		# fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
@@ -144,7 +143,6 @@ rule remove_rRNA_tRNA_pe:
 		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
 		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	output:
-		# fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
@@ -234,8 +232,6 @@ rule index_star:
 		8
 	run:
 		shell("STAR --runMode genomeGenerate --runThreadN {threads} --genomeDir {output.outdir} --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annotation} {params.overhang}")
-		# shell("gzip {input.genome}")
-		# shell("gzip {input.annotation}")
 
 def define_strand(counts, outfile):
 	df = pd.read_table(counts, sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
@@ -259,16 +255,14 @@ rule map_star_se:
 		index=STAR_INDEX_PATH+"/SAindex",
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
-		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])),
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["SE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["SE"]),
+		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["SE"])),
+		spa=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["SE"])),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
 		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
-		# bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
-		# bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
-		# bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"]),
 		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["SE"])
 	params:
 		outdir=RESULTS_PATH+"/mapped",
@@ -299,16 +293,14 @@ rule map_star_pe:
 		index=STAR_INDEX_PATH+"/SAindex",
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
-		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])),
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["PE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["PE"]),
+		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["PE"])),
+		spa=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["PE"])),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
 		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
-		# bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["PE"], typ=["plus", "minus"]),
-		# bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["PE"])),
-		# bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"]),
 		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["PE"])
 	params:
 		outdir=RESULTS_PATH+"/mapped",
@@ -330,6 +322,30 @@ rule map_star_pe:
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
+
+rule sambamba_index_se:
+	input:
+		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])
+	output:
+		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam.bai", ext=["SE"])
+	params:
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
+	threads:
+		8
+	shell:
+		"sambamba index -t {threads} {input} {output}"
+
+rule sambamba_index_pe:
+	input:
+		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])
+	output:
+		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam.bai", ext=["PE"])
+	params:
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
+	threads:
+		8
+	shell:
+		"sambamba index -t {threads} {input} {output}"
 
 def create_bigWig(exe_path, stdfile, wiglist, chrmlen, biglist, bedg, bigw):
 	with open(stdfile, "r") as infile:
@@ -357,7 +373,6 @@ rule wigToBigWig_se:
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 	output:
-		# std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"])
@@ -408,9 +423,9 @@ rule stringtie_se:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			strand = "--rf"
-		elif first_line == "SecondStrand":
 			strand = "--fr"
+		elif first_line == "SecondStrand":
+			strand = "--rf"
 		else:
 			strand = ""
 		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} -C {output.ref} {params.basic} > {log}")
@@ -423,7 +438,7 @@ rule stringtie_pe:
 	output:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["PE"]),
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"]),
-		ref=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.transcriptReference.txt", ext=["PE"])
+		ref=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.transcriptReference.gtf", ext=["PE"])
 	params:
 		basic="-f 0.2 -m 200 -a 10 -j 3",
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o {}/logs/stringtie.{{sample}}.%A.log'.format(RESULTS_PATH)
@@ -435,61 +450,49 @@ rule stringtie_pe:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			strand = "--rf"
-		elif first_line == "SecondStrand":
 			strand = "--fr"
+		elif first_line == "SecondStrand":
+			strand = "--rf"
 		else:
 			strand = ""	
 		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} -C {output.ref} {params.basic} > {log}")
 
-rule sambamba_index:
-	input:
-		RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam"
-	output:
-		RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
-	params:
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
-	threads:
-		8
-	shell:
-		"sambamba index -t {threads} {input} {output}"
+# rule remove_duplicate:
+# 	input:
+# 		picard="executables/jar/picard.jar",
+# 		bamfile=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam",
+# 		index=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
+# 	output:
+# 		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam",
+# 	log:
+# 		RESULTS_PATH+"/log/remove_duplicate/{sample}.Aligned.sortedByCoord.picard.txt"
+# 	params:
+# 		pd="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
+# 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
+# 	shell:
+# 		"java -Xmx16G -jar {input.picard} MarkDuplicates I={input.bamfile} O={output} M={log} {params.pd}"
 
-rule remove_duplicate:
-	input:
-		picard="executables/jar/picard.jar",
-		bamfile=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam",
-		index=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
-	output:
-		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam",
-	log:
-		RESULTS_PATH+"/log/remove_duplicate/{sample}.Aligned.sortedByCoord.picard.txt"
-	params:
-		pd="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
-	shell:
-		"java -Xmx16G -jar {input.picard} MarkDuplicates I={input.bamfile} O={output} M={log} {params.pd}"
+# rule picard_index:
+# 	input:
+# 		picard="executables/jar/picard.jar",
+# 		bam=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam"
+# 	output:
+# 		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai"
+# 	params:
+# 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+# 	shell:
+# 		"java -Xmx16G -jar {input.picard} BuildBamIndex I={input.bam} O={output}"
 
-rule picard_index:
-	input:
-		picard="executables/jar/picard.jar",
-		bam=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam"
-	output:
-		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai"
-	params:
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-	shell:
-		"java -Xmx16G -jar {input.picard} BuildBamIndex I={input.bam} O={output}"
-
-rule create_flatGFF:
-	input:
-		ann=os.path.splitext(config["annotation_path"])[0] if os.path.splitext(config["annotation_path"])[1] == ".gz" else config["annotation_path"],
-		exe="executables/jar/QoRTs.jar"
-	output:
-		config["annotation_path"].replace(".gtf", ".flat.gtf")
-	params:
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-	shell:
-		"java -Xmx16G -jar {input.exe} makeFlatGff --stranded {input.ann} {output}"
+# rule create_flatGFF:
+# 	input:
+# 		ann=os.path.splitext(config["annotation_path"])[0] if os.path.splitext(config["annotation_path"])[1] == ".gz" else config["annotation_path"],
+# 		exe="executables/jar/QoRTs.jar"
+# 	output:
+# 		config["annotation_path"].replace(".gtf", ".flat.gtf")
+# 	params:
+# 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+# 	shell:
+# 		"java -Xmx16G -jar {input.exe} makeFlatGff --stranded {input.ann} {output}"
 
 # rule quantification:
 # 	input:
@@ -512,25 +515,9 @@ rule create_flatGFF:
 # 		java -Xmx16G -jar QoRTs.jar QC {params.library} --stranded_fr_secondstrand --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.secondStrand}
 # 		"""
 
-# rule genome_coverage:
-# 	input:
-# 		bamfile="picarded/{sample}.Aligned.sortedByCoord.picard.bam",
-# 		genomeSize="genome/STAR_GRCh38_v27/chrNameLength.txt"
-# 	output:
-# 		positive="coverage/{sample}.pos.bedGraph",
-# 		negative="coverage/{sample}.neg.bedGraph"
-# 	params:
-# 		bt="-bg -split",
-# 		cluster='-N 1 -c 1 --mem=24G -t 160:00:00'
-# 	shell:
-# 		"""
-# 		genomeCoverageBed {params.bt} -strand + -ibam {input.bamfile} -g {input.genomeSize} > {output.positive}
-# 		genomeCoverageBed {params.bt} -strand - -ibam {input.bamfile} -g {input.genomeSize} > {output.negative}
-# 		"""
-
 rule report:
 	input:
-		# bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
@@ -547,4 +534,4 @@ rule report:
 
 		Reads were mapped to the Human reference genome GRCh38 using the Gencode annotation version 27.
 
-		""", output[0], **input)
+		""", output[0], config["samples"])
