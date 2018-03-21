@@ -3,6 +3,7 @@ import platform
 import pandas as pd
 import numpy as np
 import string
+import re
 
 # from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 # HTTP = HTTPRemoteProvider()
@@ -410,10 +411,9 @@ rule stringtie_se:
 		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["SE"]),
-		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"]),
-		ref=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.transcriptReference.txt", ext=["SE"])
+		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"])
 	params:
-		basic="-f 0.2 -m 200 -a 10 -j 3",
+		basic="-f 0.2 -m 200 -g 100 -a 10 -j 3 -t",
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o {}/logs/stringtie.{{sample}}.%A.log'.format(RESULTS_PATH)
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["SE"])
@@ -423,12 +423,12 @@ rule stringtie_se:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			strand = "--fr"
-		elif first_line == "SecondStrand":
 			strand = "--rf"
+		elif first_line == "SecondStrand":
+			strand = "--fr"
 		else:
 			strand = ""
-		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} -C {output.ref} {params.basic} > {log}")
+		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
 
 rule stringtie_pe:
 	input:
@@ -437,10 +437,9 @@ rule stringtie_pe:
 		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
 		gtf=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.StringTie.gtf", ext=["PE"]),
-		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"]),
-		ref=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.transcriptReference.gtf", ext=["PE"])
+		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"])
 	params:
-		basic="-f 0.2 -m 200 -a 10 -j 3",
+		basic="-f 0.2 -m 200 -g 100 -a 10 -j 3 -t",
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o {}/logs/stringtie.{{sample}}.%A.log'.format(RESULTS_PATH)
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["PE"])
@@ -450,12 +449,28 @@ rule stringtie_pe:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			strand = "--fr"
-		elif first_line == "SecondStrand":
 			strand = "--rf"
+		elif first_line == "SecondStrand":
+			strand = "--fr"
 		else:
 			strand = ""	
-		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} -C {output.ref} {params.basic} > {log}")
+		shell("executables/"+platform_info()+"/stringtie {input.bam} -G {input.annotation} {strand} -o {output.gtf} -p {threads} -A {output.exp} {params.basic} > {log}")
+
+rule stringtie_merge:
+	input:
+		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
+	output:
+		RESULTS_PATH+"/stringtie.merged.wildtypes.gtf"
+	params:
+		"-T 1"
+	log:
+		RESULTS_PATH+"/logs/stringtie_merge.txt"
+	threads:
+		8
+	run:
+		inputList = [ string for string in input["stringtie"] if re.search("Untreated|siLuc|WT|Senescence]", string) ]
+		shell("stringtie --merge {params} -G {input.annotation} -o {output} {inputList} 2>&1 > {log}")
 
 # rule remove_duplicate:
 # 	input:
@@ -517,7 +532,7 @@ rule stringtie_pe:
 
 rule report:
 	input:
-		bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.out.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
@@ -525,6 +540,7 @@ rule report:
 	params:
 		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00'
 	run:
+		inputList = [ string for string in input["bam"] ]
 		# pd.DataFrame({"FastQC (pre)" : preqc, "FastQC (post)": postqc, "BamFile" : bam, "BigWig": bigwig, "StringTie (GTF)", stringtie})
 
 		from snakemake.utils import report
@@ -534,4 +550,4 @@ rule report:
 
 		Reads were mapped to the Human reference genome GRCh38 using the Gencode annotation version 27.
 
-		""", output[0], config["samples"])
+		""", output[0], inputList)
