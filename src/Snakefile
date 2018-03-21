@@ -74,7 +74,6 @@ rule fastqc_pe_pre:
 
 rule trimgalore_se:
 	input:
-		html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["SE"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["SE"]))
@@ -90,7 +89,6 @@ rule trimgalore_se:
 
 rule trimgalore_pe:
 	input:
-		html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]))
@@ -250,7 +248,6 @@ def define_strand(counts, outfile):
 
 rule map_star_se:
 	input:
-		html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["SE"]),
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"]),
 		genome=STAR_INDEX_PATH,
 		index=STAR_INDEX_PATH+"/SAindex",
@@ -292,7 +289,6 @@ rule map_star_se:
 
 rule map_star_pe:
 	input:
-		html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
 		genome=STAR_INDEX_PATH,
 		index=STAR_INDEX_PATH+"/SAindex",
