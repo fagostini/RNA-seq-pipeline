@@ -136,7 +136,7 @@ rule remove_rRNA_tRNA_se:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
 		8
-	shell:
+	run:
 		"bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp} 2> {log}"
 		shell("tail -100 {output.tmp} | grep -e 'these' -e 'aligned' > {log}")
 
