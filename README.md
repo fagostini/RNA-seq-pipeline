@@ -35,7 +35,7 @@ snakemake --dag "report.html" | dot -Tsvg > dag.svg
 
 ## To-Do
 
+  - The Bowtie2 step runs a python script were the gzip support could be implemented
   - PCR duplicates removal with Picard (files are currenly produced from STAR outputs);
   - ChIP-seq branch (useful for techniques where splicing is not accounted for);
   - Dynamic retrieval of genome and annotation.
-

@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import string
 import re
+from subprocess import check_call
 
 # from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 # HTTP = HTTPRemoteProvider()
@@ -149,7 +150,7 @@ rule remove_rRNA_tRNA_pe:
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
-		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.fq.gz",
+		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.fq",
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
 	log:
@@ -159,12 +160,16 @@ rule remove_rRNA_tRNA_pe:
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1] 
-		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
+		shell("bowtie2 {params.basic} -p {threads} --un-conc {params.outname} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
 		shell("tail -100 {output.tmp} | grep -e 'these' -e 'aligned' > {log}")
-		inputList = [params["outname"].replace(".gz", s) for s in [".1.gz", ".2.gz"]]
+		inputList = [params["outname"].replace(".fq", s) for s in [".fq.1", ".fq.2"]]
 		shell("python scripts/pair_fastq_fast.py -l {} -r {}".format(inputList[0], inputList[1]))
-		shell("mv {} {}; mv {} {}".format(inputList[0].replace(".l.gz", ".1.gz"), inputList[0], inputList[1].replace(".r.gz", ".2.gz"), inputList[1]))
-		rename_out([params["outname"], params["outname"]], [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])
+		os.rename(inputList[0].replace(".fq.1", ".l.fq"), inputList[0])
+		os.rename(inputList[1].replace(".fq.2", ".r.fq"), inputList[1])
+		check_call(['gzip', inputList[0]])
+		check_call(['gzip', inputList[1]])
+		os.rename(inputList[0]+".gz", output["fastq"][0])
+		os.rename(inputList[1]+".gz", output["fastq"][1])
 
 rule fastqc_post_se:
 	input:
