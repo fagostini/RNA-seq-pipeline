@@ -7,8 +7,6 @@ import sys
 
 import argparse
 
-import gzip
-
 def stream_fastq(fqfile):
 	"""Read a fastq file and provide an iterable of the sequence ID, the
 	full header, the sequence, and the quaity scores.
@@ -48,8 +46,8 @@ if __name__ == '__main__':
 		seqid = seqid.replace('.1', '').replace('/1', '')
 		seqs[seqid] = [header, seq, qual]
 
-	lp = gzip.open("{}.l.fq.gz".format(args.l.replace('.fq.1', '')), 'wb')
-	rp = gzip.open("{}.r.fq.gz".format(args.r.replace('.fq.2', '')), 'wb')
+	lp = open("{}.l.fq".format(args.l.replace('.fq.1', '')), 'w')
+	rp = open("{}.r.fq".format(args.r.replace('.fq.2', '')), 'w')
 
 	# read the first file into a data structure
 	seen = set()
