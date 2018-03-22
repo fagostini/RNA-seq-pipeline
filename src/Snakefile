@@ -282,13 +282,13 @@ rule map_star_se:
 		prefix = "/".join((params["outdir"], os.path.basename(output["tmp"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
-			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -bS - > {output.bam}")
+			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 
 			define_strand(output["cnt"][0], output["std"][0])
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
-			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -bS - > {output.bam}")
+			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 
 rule map_star_pe:
 	input:
@@ -324,13 +324,13 @@ rule map_star_pe:
 		prefix = "/".join((params["outdir"], os.path.basename(output["tmp"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
-			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -bS - > {output.bam}")
+			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 
 			define_strand(output["cnt"][0], output["std"][0])
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
-			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -bS - > {output.bam}")
+			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 
 rule sambamba_index_se:
 	input:
