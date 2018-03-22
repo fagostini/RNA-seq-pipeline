@@ -112,7 +112,7 @@ rule index_rRNA_tRNA:
 		expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	params:
 		basename="genome/human_rRNA_tRNA/rRNA_tRNA",
-		cluster='-N 1 -c 8 --mem=30G -t 160:00:00 -o logs/index_rRNA_tRNA.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=30G -t 160:00:00 -o logs/index_rRNA_tRNA.%A.log'
 	log:
 		"logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
 	threads:
@@ -203,7 +203,7 @@ rule gunzip_annotation:
 	output:
 		os.path.splitext(ANNOTATION_PATH)[0]
 	params:
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/gunzip_annotation.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/gunzip_annotation.%A.log'
 	shell:
 		"gunzip {input}"
 
@@ -213,7 +213,7 @@ rule gunzip_genome:
 	output:
 		os.path.splitext(GENOME_PATH)[0]
 	params:
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/gunzip_genome.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/gunzip_genome.%A.log'
 	shell:
 		"gunzip {input}"
 
@@ -228,7 +228,7 @@ rule index_star:
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	params:
 		overhang="--sjdbOverhang 99",
-		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/index_star.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/index_star.%A.log'
 	threads:
 		8
 	run:
