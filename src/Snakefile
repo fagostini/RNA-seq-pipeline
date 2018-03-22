@@ -36,7 +36,7 @@ def rename_out(inlist, suffix, outdir, outlist):
 		print(" ".join(("mv", temp_out, outlist[i])))
 		os.system(" ".join(("mv", temp_out, outlist[i])))
 
-rule fastqc_se_pre:
+rule fastqc_pre_se:
 	input:
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
@@ -44,7 +44,7 @@ rule fastqc_se_pre:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.zip", ext=["SE"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-pre",
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/fastqc_pre.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-pre/{sample}.txt"
 	threads:
@@ -54,7 +54,7 @@ rule fastqc_se_pre:
 		rename_out(input["fastq"], ["_fastqc.html"], params["outdir"], output['html'])
 		rename_out(input["fastq"], ["_fastqc.zip"], params["outdir"], output['gzip'])
 
-rule fastqc_pe_pre:
+rule fastqc_pre_pe:
 	input:
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
@@ -62,7 +62,7 @@ rule fastqc_pe_pre:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-pre",
-		cluster='-N 1 -c 2 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 2 --mem=8G -t 160:00:00 -o logs/fastqc_pre.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-pre/{sample}.txt"
 	threads:
@@ -81,7 +81,7 @@ rule trimgalore_se:
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
 		outdir=RESULTS_PATH+"/trim_galore",
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt",
 	run:
@@ -97,7 +97,7 @@ rule trimgalore_pe:
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file --paired --trim1",
 		outdir=RESULTS_PATH+"/trim_galore",
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt"
 	run:
@@ -112,7 +112,7 @@ rule index_rRNA_tRNA:
 		expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
 	params:
 		basename="genome/human_rRNA_tRNA/rRNA_tRNA",
-		cluster='-N 1 -c 8 --mem=30G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=30G -t 160:00:00 -o logs/index_rRNA_tRNA.%A.{{sample}}.log'
 	log:
 		"logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
 	threads:
@@ -130,7 +130,7 @@ rule remove_rRNA_tRNA_se:
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
-		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
@@ -150,7 +150,7 @@ rule remove_rRNA_tRNA_pe:
 		basic="--sensitive-local",
 		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.fq.gz",
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
-		cluster='-N 1 -c 8 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
@@ -161,7 +161,7 @@ rule remove_rRNA_tRNA_pe:
 		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
 		rename_out([params["outname"], params["outname"]], [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])	
 
-rule fastqc_se_post:
+rule fastqc_post_se:
 	input:
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])
 	output:
@@ -169,7 +169,7 @@ rule fastqc_se_post:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.zip", ext=["SE"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-post",
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/fastqc_post.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-post/{sample}.txt"
 	threads:
@@ -179,7 +179,7 @@ rule fastqc_se_post:
 		rename_out(input["fastq"], ["_fastqc.html"], params["outdir"], output['html'])
 		rename_out(input["fastq"], ["_fastqc.zip"], params["outdir"], output['gzip'])
 
-rule fastqc_pe_post:
+rule fastqc_post_pe:
 	input:
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])
 	output:
@@ -187,7 +187,7 @@ rule fastqc_pe_post:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-post",
-		cluster='-N 1 -c 2 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 2 --mem=8G -t 160:00:00 -o logs/fastqc_post.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-post/{sample}.txt"
 	threads:
@@ -203,7 +203,7 @@ rule gunzip_annotation:
 	output:
 		os.path.splitext(ANNOTATION_PATH)[0]
 	params:
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/gunzip_annotation.%A.{{sample}}.log'
 	shell:
 		"gunzip {input}"
 
@@ -213,7 +213,7 @@ rule gunzip_genome:
 	output:
 		os.path.splitext(GENOME_PATH)[0]
 	params:
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/gunzip_genome.%A.{{sample}}.log'
 	shell:
 		"gunzip {input}"
 
@@ -228,7 +228,7 @@ rule index_star:
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	params:
 		overhang="--sjdbOverhang 99",
-		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/index_star.%A.{{sample}}.log'
 	threads:
 		8
 	run:
@@ -258,6 +258,7 @@ rule map_star_se:
 	output:
 		tmp=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])),
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["SE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["SE"]),
 		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["SE"])),
@@ -273,7 +274,7 @@ rule map_star_se:
 		dna="--alignIntronMax 1 --alignMatesGapMax 300",
 		# unstranded="--outSAMstrandField intronMotif",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
-		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -283,12 +284,13 @@ rule map_star_se:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-
+			shell("sambamba index -t {threads} {output.bam} {output.bai}")
 			define_strand(output["cnt"][0], output["std"][0])
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
+			shell("sambamba index -t {threads} {output.bam} {output.bai}")
 
 rule map_star_pe:
 	input:
@@ -300,6 +302,7 @@ rule map_star_pe:
 	output:
 		tmp=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])),
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["PE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["PE"]),
 		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["PE"])),
@@ -315,7 +318,7 @@ rule map_star_pe:
 		dna="--alignIntronMax 1 --alignMatesGapMax 300",
 		# unstranded="--outSAMstrandField intronMotif",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
-		cluster='-N 1 -c 8 --mem=64G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
@@ -325,36 +328,13 @@ rule map_star_pe:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-
+			shell("sambamba index -t {threads} {output.bam} {output.bai}")
 			define_strand(output["cnt"][0], output["std"][0])
 	
 		elif config['seq_type'] == "ChIPseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-
-rule sambamba_index_se:
-	input:
-		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"])
-	output:
-		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"])
-	params:
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
-	threads:
-		8
-	shell:
-		"sambamba index -t {threads} {input} {output}"
-
-rule sambamba_index_pe:
-	input:
-		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"])
-	output:
-		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"])
-	params:
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
-	threads:
-		8
-	shell:
-		"sambamba index -t {threads} {input} {output}"
+			shell("sambamba index -t {threads} {output.bam} {output.bai}")
 
 def create_bigWig(exe_path, stdfile, wiglist, chrmlen, biglist, bedg, bigw):
 	with open(stdfile, "r") as infile:
@@ -386,7 +366,7 @@ rule wigToBigWig_se:
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"])
 	params:
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/wigToBigWig.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/wigToBigWig/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -404,7 +384,7 @@ rule wigToBigWig_pe:
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["PE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"])
 	params:
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/wigToBigWig.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/wigToBigWig/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
@@ -422,7 +402,7 @@ rule stringtie_se:
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"])
 	params:
 		basic="-f 0.2 -m 200 -g 100 -a 10 -j 3 -t",
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/stringtie.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -448,7 +428,7 @@ rule stringtie_pe:
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"])
 	params:
 		basic="-f 0.2 -m 200 -g 100 -a 10 -j 3 -t",
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00'
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/stringtie.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
@@ -471,14 +451,13 @@ rule stringtie_merge:
 	output:
 		RESULTS_PATH+"/stringtie.merged.wildtypes.gtf"
 	params:
-		"-T 1"
+		basic="-T 1",
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/stringtie_merge.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/stringtie_merge.txt"
-	threads:
-		8
 	run:
 		inputList = [ string for string in input["stringtie"] if re.search("Untreated|siLuc|WT|Senescence]", string) ]
-		shell("stringtie --merge {params} -G {input.annotation} -o {output} {inputList} 2>&1 > {log}")
+		shell("stringtie --merge {params.basic} -G {input.annotation} -o {output} {inputList} 2>&1 > {log}")
 
 # rule remove_duplicate:
 # 	input:
@@ -548,7 +527,7 @@ rule report:
 	output:
 		RESULTS_PATH+"/sampleTable.tsv"
 	params:
-		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00 -o logs/report.%A.{{sample}}.log'
 	run:
 		idsList = [ string for string in config["samples"] ]
 		bamList = [ os.path.basename(string).replace(".bai", "") for string in input["bam"] ]
