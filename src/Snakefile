@@ -527,7 +527,7 @@ rule report:
 	output:
 		RESULTS_PATH+"/sampleTable.tsv"
 	params:
-		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00 -o logs/report.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00 -o logs/report.%A.log'
 	run:
 		idsList = [ string for string in config["samples"] ]
 		bamList = [ os.path.basename(string).replace(".bai", "") for string in input["bam"] ]
