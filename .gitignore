@@ -3,15 +3,4 @@ src/.snakemake/*
 results
 annotation
 genome
-data
-fastqc
-trim_galore
-rRNA_tRNA_removed
-mapped
-picarded
-qorts
-logs
-picard.jar
-QoRTs.jar
 .DS_Store
-.snakemake/*
