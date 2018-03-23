@@ -137,7 +137,7 @@ rule remove_rRNA_tRNA_se:
 	threads:
 		8
 	run:
-		"bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp} 2> {log}"
+		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp} 2> {log}")
 
 rule remove_rRNA_tRNA_pe:
 	input:
