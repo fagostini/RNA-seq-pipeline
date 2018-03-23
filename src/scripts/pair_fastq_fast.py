@@ -4,6 +4,7 @@ An alternate method to pair fastq files
 
 import os
 import sys
+import re
 
 import argparse
 
@@ -23,6 +24,9 @@ def stream_fastq(fqfile):
 		header = qin.readline()
 		if not header:
 			break
+		# if not header.startswith(b'@'):
+		# 	print(header)
+		# 	raise ValueError("The read ID does not start with '@'")
 		header = header.strip()
 		seqidparts = header.split(b' ')
 		seqid = seqidparts[0]
@@ -45,7 +49,7 @@ if __name__ == '__main__':
 	# read the first file into a data structure
 	seqs = {}
 	for (seqid, header, seq, qual) in stream_fastq(args.l):
-		seqid = seqid.replace(b'.1', b'').replace(b'/1', b'')
+		seqid = re.sub(b'.1$', b'', seqid)
 		seqs[seqid] = [header, seq, qual]
 
 	lp = gzip.open("{}.l.fq.gz".format(args.l.replace('.fq.1.gz', '')), 'w')
@@ -54,11 +58,11 @@ if __name__ == '__main__':
 	# read the first file into a data structure
 	seen = set()
 	for (seqid, header, seq, qual) in stream_fastq(args.r):
-		seqid = seqid.replace(b'.2', b'').replace(b'/2', b'')
+		seqid = re.sub(b'.2$', b'', seqid)
 		seen.add(seqid)
 		if seqid in seqs:
-			lp.write("@" + seqs[seqid][0] + "\n" + seqs[seqid][1] + "\n+\n" + seqs[seqid][2] + "\n")
-			rp.write("@" + header + "\n" + seq + "\n+\n" + qual + "\n")
+			lp.write(b'@' + seqs[seqid][0] + b'\n' + seqs[seqid][1] + b'\n+\n' + seqs[seqid][2] + b'\n')
+			rp.write(b'@' + header + b'\n' + seq + b'\n+\n' + qual + b'\n')
 
 	lp.close()
 	rp.close()
