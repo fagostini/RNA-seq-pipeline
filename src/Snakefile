@@ -138,7 +138,6 @@ rule remove_rRNA_tRNA_se:
 		8
 	run:
 		"bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp} 2> {log}"
-		shell("tail -100 {output.tmp} | grep -e 'these' -e 'aligned' > {log}")
 
 rule remove_rRNA_tRNA_pe:
 	input:
@@ -161,7 +160,6 @@ rule remove_rRNA_tRNA_pe:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1] 
 		shell("bowtie2 {params.basic} -p {threads} --un-conc {params.outname} --met-file {log} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
-		shell("tail -100 {output.tmp} | grep -e 'these' -e 'aligned' > {log}")
 		inputList = [params["outname"].replace(".fq", s) for s in [".fq.1", ".fq.2"]]
 		shell("python scripts/pair_fastq_fast.py -l {} -r {}".format(inputList[0], inputList[1]))
 		os.rename(inputList[0].replace(".fq.1", ".l.fq"), inputList[0])
