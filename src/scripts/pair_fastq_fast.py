@@ -7,6 +7,8 @@ import sys
 
 import argparse
 
+import gzip
+
 def stream_fastq(fqfile):
 	"""Read a fastq file and provide an iterable of the sequence ID, the
 	full header, the sequence, and the quaity scores.
@@ -15,21 +17,21 @@ def stream_fastq(fqfile):
 	while the header is the whole header.
 	"""
 
-	qin = open(fqfile, 'r')
+	qin = gzip.open(fqfile, 'rb')
 
 	while True:
 		header = qin.readline()
 		if not header:
 			break
 		header = header.strip()
-		seqidparts = header.split(' ')
+		seqidparts = header.split(b' ')
 		seqid = seqidparts[0]
 		seq = qin.readline()
 		seq = seq.strip()
 		qualheader = qin.readline()
 		qualscores = qin.readline()
 		qualscores = qualscores.strip()
-		header = header.replace('@', '', 1)
+		header = header.replace(b'@', b'', 1)
 		yield seqid, header, seq, qualscores
 
 
@@ -43,16 +45,16 @@ if __name__ == '__main__':
 	# read the first file into a data structure
 	seqs = {}
 	for (seqid, header, seq, qual) in stream_fastq(args.l):
-		seqid = seqid.replace('.1', '').replace('/1', '')
+		seqid = seqid.replace(b'.1', b'').replace(b'/1', b'')
 		seqs[seqid] = [header, seq, qual]
 
-	lp = open("{}.l.fq".format(args.l.replace('.1.fq', '')), 'w')
-	rp = open("{}.r.fq".format(args.r.replace('.2.fq', '')), 'w')
+	lp = gzip.open("{}.l.fq.gz".format(args.l.replace('.fq.1.gz', '')), 'w')
+	rp = gzip.open("{}.r.fq.gz".format(args.r.replace('.fq.2.gz', '')), 'w')
 
 	# read the first file into a data structure
 	seen = set()
 	for (seqid, header, seq, qual) in stream_fastq(args.r):
-		seqid = seqid.replace('.2', '').replace('/2', '')
+		seqid = seqid.replace(b'.2', b'').replace(b'/2', b'')
 		seen.add(seqid)
 		if seqid in seqs:
 			lp.write("@" + seqs[seqid][0] + "\n" + seqs[seqid][1] + "\n+\n" + seqs[seqid][2] + "\n")
