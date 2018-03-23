@@ -36,7 +36,7 @@ def stream_fastq(fqfile):
 
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description="Pair fastq files, writing all the pairs to separate files and the unmapped reads to separate files")
+	parser = argparse.ArgumentParser(description="Provided with two paired-end fastq files, the script matches the read and re-writes them into the original files")
 	parser.add_argument('-l', help='Pair #1 reads file')
 	parser.add_argument('-r', help='Pair #2 reads file')
 	args = parser.parse_args()
@@ -62,3 +62,6 @@ if __name__ == '__main__':
 
 	lp.close()
 	rp.close()
+
+	os.rename("{}.l.fq.gz".format(args.l.replace('.fq.1.gz', '')), args.l)
+	os.rename("{}.r.fq.gz".format(args.r.replace('.fq.2.gz', '')), args.r)
