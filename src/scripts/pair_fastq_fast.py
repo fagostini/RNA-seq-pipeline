@@ -36,7 +36,7 @@ def stream_fastq(fqfile):
 
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description="Provided with two paired-end fastq files, the script matches the read and re-writes them into the original files")
+	parser = argparse.ArgumentParser(description="Provided with two paired-end fastq files, the script matches the pairs overwriting the original files")
 	parser.add_argument('-l', help='Pair #1 reads file')
 	parser.add_argument('-r', help='Pair #2 reads file')
 	args = parser.parse_args()
