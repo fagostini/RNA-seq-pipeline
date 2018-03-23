@@ -46,8 +46,8 @@ if __name__ == '__main__':
 		seqid = seqid.replace('.1', '').replace('/1', '')
 		seqs[seqid] = [header, seq, qual]
 
-	lp = open("{}.l.fq".format(args.l.replace('.fq.1', '')), 'w')
-	rp = open("{}.r.fq".format(args.r.replace('.fq.2', '')), 'w')
+	lp = open("{}.l.fq".format(args.l.replace('.1.fq', '')), 'w')
+	rp = open("{}.r.fq".format(args.r.replace('.2.fq', '')), 'w')
 
 	# read the first file into a data structure
 	seen = set()
