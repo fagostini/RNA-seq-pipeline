@@ -1,10 +1,24 @@
 # Define pipeline paths
-snakemake_path: /Users/agostif/Documents/GitHub/vigilant-cobra/src
-results_path: /Users/agostif/Documents/GitHub/vigilant-cobra/results
+global:
+  snakemake: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src
+  results: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/results
+
+# Define mapping and annotation paths
+genome:
+  path: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src/genome
+  name: GRCh38.primary_assembly.genome.fa.gz
+annotation:
+  path: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src/annotation
+  name: gencode.v27.annotation.gtf.gz
+alignment:
+  path: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src/genome
+  ribo: human_rRNA_tRNA/rRNA_tRNA
+  star: STAR_GRCh38_v27
 
 # Define samples
 samples:
-  HeLa_WT: ["/Users/agostif/Documents/GitHub/vigilant-cobra/fastq/n26_CTTGTA.fastq.gz"]
-  RNAseq_UV_24h_MRC5VA: ["/Users/agostif/Documents/GitHub/vigilant-cobra/fastq/SRR5097391_1.fastq.gz", "/Users/agostif/Documents/GitHub/vigilant-cobra/fastq/SRR5097391_2.fastq.gz"]
+  Single-end_sample: ["/Users/agostif/Documents/GitHub/RNA-seq-pipeline/data/single.fastq.gz"] # Single-end sample
+  Paired-end_sample: ["/Users/agostif/Documents/GitHub/RNA-seq-pipeline/data/paired_1.fastq.gz", "/Users/agostif/Documents/GitHub/RNA-seq-pipeline/data/paired_2.fastq.gz"] # Paired-end sample
 
-ngs_type: "RNAseq" # or ChIPseq
+# Define sequencing type
+seq_type: "RNAseq" # or NETseq or GROseq (not implemented yet)
