@@ -1,7 +1,6 @@
-src/.DS_Store
+**/.DS_Store
 src/.snakemake/*
 results
 annotation
 genome
-.DS_Store
 logs/*.log
