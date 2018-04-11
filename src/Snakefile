@@ -306,7 +306,7 @@ rule map_star_SE:
 
 rule remove_duplicates_SE:
 	input:
-		exe=PATH+"executables/jar/picard.jar",
+		exe=PATH+"/executables/jar/picard.jar",
 		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 	output:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
@@ -321,7 +321,7 @@ rule remove_duplicates_SE:
 
 rule picard_index_SE:
 	input:
-		exe=PATH+"executables/jar/picard.jar",
+		exe=PATH+"/executables/jar/picard.jar",
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 	output:
 		expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
@@ -394,7 +394,7 @@ rule map_star_PE:
 
 rule remove_duplicates_PE:
 	input:
-		exe=PATH+"executables/jar/picard.jar",
+		exe=PATH+"/executables/jar/picard.jar",
 		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 	output:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
@@ -409,7 +409,7 @@ rule remove_duplicates_PE:
 
 rule picard_index_PE:
 	input:
-		exe=PATH+"executables/jar/picard.jar",
+		exe=PATH+"/executables/jar/picard.jar",
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 	output:
 		expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
@@ -551,7 +551,7 @@ rule create_flatGFF:
 		gff=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH,
 		exe="executables/jar/QoRTs.jar"
 	output:
-		os.path.splitext(ANNOTATION_PATH)+".flat.gtf"
+		os.path.splitext(os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH)[0]+".flat.gtf"
 	params:
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	shell:
@@ -559,19 +559,19 @@ rule create_flatGFF:
 
 rule quantification_SE:
 	input:
-		exe="executables/jar/QoRTs.jar",
+		exe=PATH+"/executables/jar/QoRTs.jar",
 		gff=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH,
-		flatfile=os.path.splitext(ANNOTATION_PATH)+".flat.gtf",
+		flatfile=os.path.splitext(os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH)[0]+".flat.gtf",
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 	output:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["SE"]),
-		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"]),
-		outdir=RESULTS_PATH+"/qorts"
+		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"])
 	params:
-		library="--singleEnded --minMAPQ 255 ",
+		library="--singleEnded --minMAPQ 255",
+		outdir=RESULTS_PATH+"/qorts",
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
@@ -580,27 +580,27 @@ rule quantification_SE:
 		with open(stdfile, "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
 		elif first_line == "SecondStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
 		else:
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
 
 rule quantification_PE:
 	input:
-		exe="executables/jar/QoRTs.jar",
+		exe=PATH+"/executables/jar/QoRTs.jar",
 		gff=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH,
-		flatfile=os.path.splitext(ANNOTATION_PATH)+".flat.gtf",
+		flatfile=os.path.splitext(os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH)[0]+".flat.gtf",
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 	output:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["PE"]),
-		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"]),
-		outdir=RESULTS_PATH+"/qorts"
+		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
 	params:
 		library="--minMAPQ 255",
+		outdir=RESULTS_PATH+"/qorts",
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
@@ -609,11 +609,11 @@ rule quantification_PE:
 		with open(stdfile, "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
 		elif first_line == "SecondStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
 		else:
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
 
 rule report:
 	input:
@@ -642,7 +642,7 @@ rule report_short:
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		count=expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
 		RESULTS_PATH+"/sampleTableShort.tsv"
@@ -667,7 +667,7 @@ rule dag:
 		expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	run:
 		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join([ item[0] for item in params]), *output))
@@ -683,7 +683,7 @@ rule dag_complete:
 		expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		[RESULTS_PATH+"/sampleTable.tsv"]
 	run:
 		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join(list(chain.from_iterable(params))), *output))
