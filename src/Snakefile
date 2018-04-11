@@ -350,7 +350,7 @@ rule map_star_PE:
 		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
 		dna="--alignIntronMax 1 --alignMatesGapMax 300 --quantMode GeneCounts",
 		# unstranded="--outSAMstrandField intronMotif",
-		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJou --outSAMattributes All --outSAMtype BAM SortedByCoordinate",
+		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout --outSAMattributes All --outSAMtype BAM SortedByCoordinate",
 		wiggle="--outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{{sample}}.log'
 	log:
