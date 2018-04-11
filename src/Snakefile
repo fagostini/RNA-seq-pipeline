@@ -312,25 +312,18 @@ rule remove_duplicates_SE:
 		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 	output:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
-		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["SE"])
+		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["SE"]),
+		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"])
 	params:
 		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
 	shell:
-		"java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
-
-rule picard_index_SE:
-	input:
-		exe=PATH+"/executables/jar/picard.jar",
-		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
-	output:
-		expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
-	params:
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-	shell:
-		"java -Xmx16G -jar {input.exe} BuildBamIndex I={input.bamfile} O={output}"
+		"""
+		java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
+		java -Xmx16G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}
+		"""
 
 rule map_star_PE:
 	input:
@@ -400,25 +393,18 @@ rule remove_duplicates_PE:
 		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 	output:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
-		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["PE"])
+		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["PE"]),
+		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"])
 	params:
 		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["PE"])
 	shell:
-		"java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
-
-rule picard_index_PE:
-	input:
-		exe=PATH+"/executables/jar/picard.jar",
-		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
-	output:
-		expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
-	params:
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-	shell:
-		"java -Xmx16G -jar {input.exe} BuildBamIndex I={input.bamfile} O={output}"
+		"""
+		java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
+		java -Xmx16G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}
+		"""
 
 def create_bigWig(exe_path, stdfile, bamfile, chrmlen, bedlist, biglist, bedg, bigw, btparam):
 	shell(" ".join(("genomeCoverageBed -ibam -bg -split", btparam, "-strand + -i", bamfile, "-g", chrmlen, ">", bedlist[0])))
@@ -462,7 +448,7 @@ rule bamToBigWig_SE:
 	run:
 		create_bigWig(platform_info(), input["std"][0], input["bamfile"][0], input["chrmlen"], output["bgl"], output["bwi"], output["bgu"][0], output["bwu"][0], "")
 
-rule wigToBigWig_PE:
+rule bamToBigWig_PE:
 	input:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
@@ -620,8 +606,6 @@ rule quantification_PE:
 rule report:
 	input:
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		count=expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
@@ -632,8 +616,7 @@ rule report:
 	run:
 		idsList = [ string for string in config["samples"] ]
 		bamList = [ os.path.basename(string).replace(".bai", "") for string in input["bam"] ]
-		cntList = [ os.path.basename(string) for string in input["count"] ]
-		stdList = [ os.path.basename(string) for string in input["strand"] ]
+		cntList = [ os.path.basename(os.path.dirname(string))+"/"+os.path.basename(string) for string in input["qorts"] ]
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
 		strList = [ os.path.basename(string) for string in input["stringtie"] ]
 		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList, "StringTie (GTF)" : strList}, index=idsList)
@@ -642,8 +625,6 @@ rule report:
 rule report_short:
 	input:
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		count=expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
@@ -653,8 +634,7 @@ rule report_short:
 	run:
 		idsList = [ string for string in config["samples"] ]
 		bamList = [ os.path.basename(string).replace(".bai", "") for string in input["bam"] ]
-		cntList = [ os.path.basename(string) for string in input["count"] ]
-		stdList = [ os.path.basename(string) for string in input["strand"] ]
+		cntList = [ os.path.basename(os.path.dirname(string))+"/"+os.path.basename(string) for string in input["qorts"] ]
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
 		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList}, index=idsList)
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
@@ -662,30 +642,32 @@ rule report_short:
 # Individual dag
 rule dag:
 	output:
-		RESULTS_PATH+"/dag.pdf"
+		RESULTS_PATH+"/dag.pdf",
+		RESULTS_PATH+"/dag.svg"
 	params:
 		expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	run:
-		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join([ item[0] for item in params]), *output))
+		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join([ item[0] for item in params]), output[0]))
+		shell("snakemake --dag {} | dot -Tsvg > {}".format(" ".join([ item[0] for item in params]), output[1]))
 
 # Complete dag
 rule dag_complete:
 	output:
-		RESULTS_PATH+"/dag_complete.pdf"
+		RESULTS_PATH+"/dag_complete.pdf",
+		RESULTS_PATH+"/dag_complete.svg"
 	params:
 		expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		[RESULTS_PATH+"/sampleTable.tsv"]
 	run:
-		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join(list(chain.from_iterable(params))), *output))
+		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join(list(chain.from_iterable(params))), output[0]))
+		shell("snakemake --dag {} | dot -Tsvg > {}".format(" ".join(list(chain.from_iterable(params))), output[1]))
