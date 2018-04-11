@@ -567,7 +567,7 @@ rule quantification_SE:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
-		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["SE"]),
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"])
@@ -596,7 +596,7 @@ rule quantification_PE:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
-		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["PE"]),
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
