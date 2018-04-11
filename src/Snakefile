@@ -565,7 +565,7 @@ rule quantification_SE:
 	log:
 		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
-		with open(stdfile, "r") as infile:
+		with open(input["std"], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
@@ -594,7 +594,7 @@ rule quantification_PE:
 	log:
 		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
-		with open(stdfile, "r") as infile:
+		with open(input["std"], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
