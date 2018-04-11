@@ -33,6 +33,10 @@ rule all:
 	input:
 		RESULTS_PATH+"/sampleTable.tsv"
 
+rule map:
+	input:
+		RESULTS_PATH+"/sampleTableShort.tsv"
+
 def rename_out(inlist, suffix, outdir, outlist):
 	for i in range(len(inlist)):
 		base_out = "/".join((outdir, os.path.basename(inlist[i])))
@@ -263,23 +267,24 @@ rule map_star_SE:
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		tmp=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])),
-		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
-		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
+		bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"])),
+		# bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["SE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["SE"]),
 		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["SE"])),
 		spa=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["SE"])),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
-		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
-		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
+		# wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
+		# mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
 		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["SE"])
 	params:
 		outdir=RESULTS_PATH+"/mapped",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
 		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
-		dna="--alignIntronMax 1 --alignMatesGapMax 300",
+		dna="--alignIntronMax 1 --alignMatesGapMax 300 --quantMode GeneCounts",
 		# unstranded="--outSAMstrandField intronMotif",
-		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
+		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout --outSAMattributes All --outSAMtype BAM SortedByCoordinate",
+		wiggle="--outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["SE"])
@@ -291,12 +296,39 @@ rule map_star_SE:
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
 			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-			shell("sambamba index -t {threads} {output.bam} {output.bai}")
+			# shell("sambamba index -t {threads} {output.bam} {output.bai}")
 	
-		elif config['seq_type'] == "ChIPseq":
+		elif config['seq_type'] == "NETseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
+			define_strand(output["cnt"][0], output["std"][0])
 			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-			shell("sambamba index -t {threads} {output.bam} {output.bai}")
+			# shell("sambamba index -t {threads} {output.bam} {output.bai}")
+
+rule remove_duplicates_SE:
+	input:
+		exe=PATH+"executables/jar/picard.jar",
+		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+	output:
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["SE"])
+	params:
+		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
+	log:
+		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
+	shell:
+		"java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
+
+rule picard_index_SE:
+	input:
+		exe=PATH+"executables/jar/picard.jar",
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+	output:
+		expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
+	params:
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+	shell:
+		"java -Xmx16G -jar {input.exe} BuildBamIndex I={input.bamfile} O={output}"
 
 rule map_star_PE:
 	input:
@@ -307,23 +339,24 @@ rule map_star_PE:
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		tmp=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])),
-		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
-		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
+		bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"])),
+		# bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["PE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["PE"]),
 		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["PE"])),
 		spa=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["PE"])),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
-		wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
-		mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
+		# wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
+		# mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
 		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["PE"])
 	params:
 		outdir=RESULTS_PATH+"/mapped",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
 		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
-		dna="--alignIntronMax 1 --alignMatesGapMax 300",
+		dna="--alignIntronMax 1 --alignMatesGapMax 300 --quantMode GeneCounts",
 		# unstranded="--outSAMstrandField intronMotif",
-		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout  --outSAMattributes All --outSAMtype BAM SortedByCoordinate --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
+		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJou --outSAMattributes All --outSAMtype BAM SortedByCoordinate",
+		wiggle="--outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["PE"])
@@ -343,25 +376,63 @@ rule map_star_PE:
 				else:
 					strand = 0
 			shell("sambamba view -t {threads} -h {output.tmp} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-			shell("sambamba index -t {threads} {output.bam} {output.bai}")
+			# shell("sambamba index -t {threads} {output.bam} {output.bai}")
 	
-		elif config['seq_type'] == "NETseq" or config['seq_type'] == "GROseq":
+		elif config['seq_type'] == "NETseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
-			shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-			shell("sambamba index -t {threads} {output.bam} {output.bai}")
+			define_strand(output["cnt"][0], output["std"][0])
+			with open(output["std"][0], "r") as infile:
+				first_line = infile.readline()
+				if first_line == "FirstStrand":
+					strand = 1
+				elif first_line == "SecondStrand":
+					strand = 2
+				else:
+					strand = 0
+				shell("sambamba view -t {threads} -h {output.tmp} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
+				# shell("sambamba index -t {threads} {output.bam} {output.bai}")
 
-def create_bigWig(exe_path, stdfile, wiglist, chrmlen, biglist, bedg, bigw):
+rule remove_duplicates_PE:
+	input:
+		exe=PATH+"executables/jar/picard.jar",
+		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+	output:
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["PE"])
+	params:
+		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
+	log:
+		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["PE"])
+	shell:
+		"java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
+
+rule picard_index_PE:
+	input:
+		exe=PATH+"executables/jar/picard.jar",
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+	output:
+		expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
+	params:
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+	shell:
+		"java -Xmx16G -jar {input.exe} BuildBamIndex I={input.bamfile} O={output}"
+
+def create_bigWig(exe_path, stdfile, bamfile, chrmlen, bedlist, biglist, bedg, bigw, btparam):
+	shell(" ".join(("genomeCoverageBed -ibam -bg -split", btparam, "-strand + -i", bamfile, "-g", chrmlen, ">", bedlist[0])))
+	shell(" ".join(("genomeCoverageBed -ibam -bg -split", btparam, "-strand - -i", bamfile, "-g", chrmlen, ">", bedlist[1])))
+
 	with open(stdfile, "r") as infile:
 		first_line = infile.readline()
 	if first_line == "FirstStrand":
-		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+		shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedlist[0], chrmlen, biglist[0])))
+		shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedlist[1], chrmlen, biglist[1])))
 	elif first_line == "SecondStrand":
-		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[0])))
-		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[1])))
+		shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedlist[1], chrmlen, biglist[0])))
+		shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedlist[0], chrmlen, biglist[1])))
 	else:
-		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[0], chrmlen, biglist[0])))
-		shell(" ".join(("executables/"+exe_path+"/wigToBigWig", wiglist[1], chrmlen, biglist[1])))
+		shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedlist[0], chrmlen, biglist[0])))
+		shell(" ".join(("executables/"+exe_path+"/bedGraphToBigWig", bedlist[1], chrmlen, biglist[1])))
 
 	shell(" ".join(("executables/"+exe_path+"/bigWigMerge", *biglist, bedg)))
 	shell(" ".join(("LC_COLLATE=C sort -k1,1 -k2,2n", bedg, ">", os.path.splitext(bedg)[0]+".sorted")))
@@ -370,45 +441,47 @@ def create_bigWig(exe_path, stdfile, wiglist, chrmlen, biglist, bedg, bigw):
 
 	return(0)
 
-rule wigToBigWig_SE:
+rule bamToBigWig_SE:
 	input:
-		wig=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"]),
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 	output:
+		bgl=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.Signal.Unique.str{num}.out.bedGraph", ext=["SE"], num=["1", "2"])),
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"])
 	params:
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/wigToBigWig.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{{sample}}.log'
 	log:
-		expand(RESULTS_PATH+"/logs/wigToBigWig/{{sample}}_{ext}.txt", ext=["SE"])
+		expand(RESULTS_PATH+"/logs/bamToBigWig/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
 		1
 	run:
-		create_bigWig(platform_info(), input["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
+		create_bigWig(platform_info(), input["std"][0], input["bamfile"][0], input["chrmlen"], output["bgl"], output["bwi"], output["bgu"][0], output["bwu"][0], "")
 
 rule wigToBigWig_PE:
 	input:
-		wig=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"]),
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
 	output:
+		bgl=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.Signal.Unique.str{num}.out.bedGraph", ext=["PE"], num=["1", "2"])),
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["PE"], typ=["plus", "minus"]),
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["PE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"])
 	params:
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/wigToBigWig.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{{sample}}.log'
 	log:
-		expand(RESULTS_PATH+"/logs/wigToBigWig/{{sample}}_{ext}.txt", ext=["PE"])
+		expand(RESULTS_PATH+"/logs/bamToBigWig/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
 		1
 	run:
-		create_bigWig(platform_info(), input["std"][0], input["wig"], input["chrmlen"], output["bwi"], output["bgu"][0], output["bwu"][0])
+		create_bigWig(platform_info(), input["std"][0], input["bamfile"][0], input["chrmlen"], output["bgl"], output["bwi"], output["bgu"][0], output["bwu"][0], "-pc -du")
 
 rule stringtie_SE:
 	input:
-		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		bam=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
@@ -434,7 +507,7 @@ rule stringtie_SE:
 
 rule stringtie_PE:
 	input:
-		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+		bam=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
@@ -473,71 +546,83 @@ rule stringtie_merge:
 		inputList = [ string for string in input["stringtie"] if re.search("Untreated|siLuc|WT|WildType|Senescence]", string) ]
 		shell("stringtie --merge {params.basic} -G {input.annotation} -o {output} {inputList} 2>&1 > {log}")
 
-# rule remove_duplicate:
-# 	input:
-# 		picard="executables/jar/picard.jar",
-# 		bamfile=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam",
-# 		index=RESULTS_PATH+"/mapped/{sample}.Aligned.sortedByCoord.out.bam.bai"
-# 	output:
-# 		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam",
-# 	log:
-# 		RESULTS_PATH+"/log/remove_duplicate/{sample}.Aligned.sortedByCoord.picard.txt"
-# 	params:
-# 		pd="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
-# 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
-# 	shell:
-# 		"java -Xmx16G -jar {input.picard} MarkDuplicates I={input.bamfile} O={output} M={log} {params.pd}"
+rule create_flatGFF:
+	input:
+		gff=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH,
+		exe="executables/jar/QoRTs.jar"
+	output:
+		os.path.splitext(ANNOTATION_PATH)+".flat.gtf"
+	params:
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+	shell:
+		"java -Xmx16G -jar {input.exe} makeFlatGff --stranded --quiet {input.gff} {output}"
 
-# rule picard_index:
-# 	input:
-# 		picard="executables/jar/picard.jar",
-# 		bam=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam"
-# 	output:
-# 		RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai"
-# 	params:
-# 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-# 	shell:
-# 		"java -Xmx16G -jar {input.picard} BuildBamIndex I={input.bam} O={output}"
+rule quantification_SE:
+	input:
+		exe="executables/jar/QoRTs.jar",
+		gff=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH,
+		flatfile=os.path.splitext(ANNOTATION_PATH)+".flat.gtf",
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
+		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+	output:
+		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["SE"]),
+		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"]),
+		outdir=RESULTS_PATH+"/qorts"
+	params:
+		library="--singleEnded --minMAPQ 255 ",
+		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+	log:
+		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
+	run:
+		with open(stdfile, "r") as infile:
+			first_line = infile.readline()
+		if first_line == "FirstStrand":
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+		elif first_line == "SecondStrand":
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+		else:
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
 
-# rule create_flatGFF:
-# 	input:
-# 		ann=os.path.splitext(config["annotation_path"])[0] if os.path.splitext(config["annotation_path"])[1] == ".gz" else config["annotation_path"],
-# 		exe="executables/jar/QoRTs.jar"
-# 	output:
-# 		config["annotation_path"].replace(".gtf", ".flat.gtf")
-# 	params:
-# 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-# 	shell:
-# 		"java -Xmx16G -jar {input.exe} makeFlatGff --stranded {input.ann} {output}"
-
-# rule quantification:
-# 	input:
-# #		executable="QoRTs.jar",
-# 		gff="annotation/gencode.v27.annotation.gtf.gz",
-# 		flatfile="annotation/gencode.v27.annotation.flat.gtf.gz",
-# 		bamfile=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam",
-# 		index=RESULTS_PATH+"/picarded/{sample}.Aligned.sortedByCoord.picard.bam.bai",
-# 		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
-# 	output:
-# 		firstStrand=RESULTS_PATH+"/qorts/{sample}.firstStrand.counts",
-# 		secondStrand=RESULTS_PATH+"/qorts/{sample}.secondStrand.counts"
-# 	params:
-# 		library="--stranded --singleEnded --minMAPQ 255",
-# 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,makeWiggles,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
-# 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
-# 	shell:
-# 		"""
-# 		java -Xmx16G -jar QoRTs.jar QC {params.library} --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.firstStrand}
-# 		java -Xmx16G -jar QoRTs.jar QC {params.library} --stranded_fr_secondstrand --runFunctions {params.functions} --chromSizes {input.chrmlen} {input.bamfile} {input.gff} {output.secondStrand}
-# 		"""
+rule quantification_PE:
+	input:
+		exe="executables/jar/QoRTs.jar",
+		gff=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH,
+		flatfile=os.path.splitext(ANNOTATION_PATH)+".flat.gtf",
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
+		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+	output:
+		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["PE"]),
+		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"]),
+		outdir=RESULTS_PATH+"/qorts"
+	params:
+		library="--minMAPQ 255",
+		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+	log:
+		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
+	run:
+		with open(stdfile, "r") as infile:
+			first_line = infile.readline()
+		if first_line == "FirstStrand":
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+		elif first_line == "SecondStrand":
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
+		else:
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], output["outdir"])))
 
 rule report:
 	input:
-		bam=expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		count=expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
 		RESULTS_PATH+"/sampleTable.tsv"
 	params:
@@ -552,17 +637,38 @@ rule report:
 		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList, "StringTie (GTF)" : strList}, index=idsList)
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
 
+rule report_short:
+	input:
+		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		count=expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+	output:
+		RESULTS_PATH+"/sampleTableShort.tsv"
+	params:
+		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00 -o logs/report.%A.log'
+	run:
+		idsList = [ string for string in config["samples"] ]
+		bamList = [ os.path.basename(string).replace(".bai", "") for string in input["bam"] ]
+		cntList = [ os.path.basename(string) for string in input["count"] ]
+		stdList = [ os.path.basename(string) for string in input["strand"] ]
+		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
+		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList}, index=idsList)
+		DF.to_csv(output[0], sep="\t", index_label="Sample")
+
 # Individual dag
 rule dag:
 	output:
 		RESULTS_PATH+"/dag.pdf"
 	params:
 		expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	run:
 		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join([ item[0] for item in params]), *output))
 
@@ -573,10 +679,11 @@ rule dag_complete:
 	params:
 		expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F", "R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		expand(RESULTS_PATH+"/mapped/{}_{}.Aligned.sortedByCoord.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/mapped/{}_{}.ReadsPerGene.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 		[RESULTS_PATH+"/sampleTable.tsv"]
 	run:
 		shell("snakemake --dag {} | dot -Tpdf > {}".format(" ".join(list(chain.from_iterable(params))), *output))
