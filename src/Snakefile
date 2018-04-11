@@ -447,7 +447,7 @@ rule bamToBigWig_SE:
 	input:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
-		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		bgl=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.Signal.Unique.str{num}.out.bedGraph", ext=["SE"], num=["1", "2"])),
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["SE"], typ=["plus", "minus"]),
@@ -466,7 +466,7 @@ rule wigToBigWig_PE:
 	input:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
-		chrmlen="genome/STAR_GRCh38_v27/chrNameLength.txt"
+		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		bgl=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.Signal.Unique.str{num}.out.bedGraph", ext=["PE"], num=["1", "2"])),
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}.bigwig", ext=["PE"], typ=["plus", "minus"]),
