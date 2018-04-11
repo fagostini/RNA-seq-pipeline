@@ -114,12 +114,12 @@ rule trimgalore_PE:
 
 rule index_rRNA_tRNA:
 	input:
-		"genome/human_rRNA_tRNA/rRNA_tRNA.fa.gz"
+		RIBO_INDEX_PATH+".fa.gz"
 	output:
-		expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
-		expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
+		expand(RIBO_INDEX_PATH+".{count}.bt2", count=['1', '2', '3', '4']),
+		expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	params:
-		basename="genome/human_rRNA_tRNA/rRNA_tRNA",
+		basename=RIBO_INDEX_PATH,
 		cluster='-N 1 -c 8 --mem=30G -t 160:00:00 -o logs/index_rRNA_tRNA.%A.log'
 	log:
 		"logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
@@ -131,31 +131,33 @@ rule index_rRNA_tRNA:
 rule remove_rRNA_tRNA_SE:
 	input:
 		fastq=expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["SE"]),
-		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
-		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
+		index1=expand(RIBO_INDEX_PATH+".{count}.bt2", count=['1', '2', '3', '4']),
+		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
+		basename=RIBO_INDEX_PATH,
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
 		8
 	run:
-		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x genome/human_rRNA_tRNA/rRNA_tRNA -U {input.fastq} 1> {output.tmp} 2> {log}")
+		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x {params.basename} -U {input.fastq} 1> {output.tmp} 2> {log}")
 
 rule remove_rRNA_tRNA_PE:
 	input:
 		fastq=expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]),
-		index1=expand("genome/human_rRNA_tRNA/rRNA_tRNA.{count}.bt2", count=['1', '2', '3', '4']),
-		index2=expand("genome/human_rRNA_tRNA/rRNA_tRNA.rev.{count}.bt2", count=['1', '2'])
+		index1=expand(RIBO_INDEX_PATH+".{count}.bt2", count=['1', '2', '3', '4']),
+		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
 		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.tmp")
 	params:
 		basic="--sensitive-local",
+		basename=RIBO_INDEX_PATH,
 		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.fq.gz",
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
@@ -166,7 +168,7 @@ rule remove_rRNA_tRNA_PE:
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1] 
-		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} -x genome/human_rRNA_tRNA/rRNA_tRNA -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
+		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} -x {params.basename} -1 {fq1} -2 {fq2} 1> {output.tmp} 2> {log}")
 		inputList = [params["outname"].replace(".fq.gz", s) for s in [".fq.1.gz", ".fq.2.gz"]]
 		shell("python scripts/pair_fastq_fast.py -l {} -r {}".format(*inputList))
 		rename_out(inputList, [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])
