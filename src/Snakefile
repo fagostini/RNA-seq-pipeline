@@ -561,7 +561,7 @@ rule quantification_SE:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"])
 	params:
 		library="--singleEnded --minMAPQ 255",
-		outdir=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}", ext=["SE"]),
+		outdir=RESULTS_PATH+"/qorts/{sample}_SE",
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
@@ -570,11 +570,11 @@ rule quantification_SE:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 		elif first_line == "SecondStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 		else:
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 
 rule quantification_PE:
 	input:
@@ -590,7 +590,7 @@ rule quantification_PE:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
 	params:
 		library="--minMAPQ 255",
-		outdir=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}", ext=["PE"]),
+		outdir=RESULTS_PATH+"/qorts/{sample}_PE",
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
@@ -599,11 +599,11 @@ rule quantification_PE:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 		elif first_line == "SecondStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 		else:
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 
 rule report:
 	input:
