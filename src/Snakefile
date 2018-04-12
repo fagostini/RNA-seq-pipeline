@@ -402,8 +402,8 @@ rule remove_duplicates_PE:
 		"""
 
 def create_bigWig(exe_path, stdfile, bamfile, chrmlen, bedlist, biglist, bedg, bigw, btparam):
-	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand + -ibam", bamfile, ">", bedlist[0])))
-	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand - -ibam", bamfile, ">", bedlist[1])))
+	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand + -ibam", bamfile, "| LC_COLLATE=C sort -k1,1 -k2,2n >", bedlist[0])))
+	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand - -ibam", bamfile, "| LC_COLLATE=C sort -k1,1 -k2,2n >", bedlist[1])))
 
 	with open(stdfile, "r") as infile:
 		first_line = infile.readline()
