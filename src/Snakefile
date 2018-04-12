@@ -6,19 +6,14 @@ import string
 import re
 from itertools import chain
 
-# Import config file & parameters
-configfile: 'config.yaml'
+# # Import config file & parameters
+# configfile: 'config.yaml'
 
 # Import paths from config file
-# PATH = config['snakemake_path']
 PATH = "{}".format(config['global']['snakemake'])
-# RESULTS_PATH = config['results_path']
 RESULTS_PATH = "{}".format(config['global']['results'])
-# GENOME_PATH = config['genome_path']
 GENOME_PATH = "{}/{}".format(config['genome']['path'], config['genome']['name'])
-# ANNOTATION_PATH = config['annotation_path']
 ANNOTATION_PATH = "{}/{}".format(config['annotation']['path'], config['annotation']['name'])
-# STAR_INDEX_PATH = config['star_index_path']
 RIBO_INDEX_PATH = "{}/{}".format(config['alignment']['path'], config['alignment']['ribo'])
 STAR_INDEX_PATH = "{}/{}".format(config['alignment']['path'], config['alignment']['star'])
 
