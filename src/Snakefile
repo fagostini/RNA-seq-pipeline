@@ -407,8 +407,8 @@ rule remove_duplicates_PE:
 		"""
 
 def create_bigWig(exe_path, stdfile, bamfile, chrmlen, bedlist, biglist, bedg, bigw, btparam):
-	shell(" ".join(("genomeCoverageBed -ibam -bg -split", btparam, "-strand + -i", bamfile, "-g", chrmlen, ">", bedlist[0])))
-	shell(" ".join(("genomeCoverageBed -ibam -bg -split", btparam, "-strand - -i", bamfile, "-g", chrmlen, ">", bedlist[1])))
+	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand + -ibam", bamfile, ">", bedlist[0])))
+	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand - -ibam", bamfile, ">", bedlist[1])))
 
 	with open(stdfile, "r") as infile:
 		first_line = infile.readline()
@@ -440,13 +440,14 @@ rule bamToBigWig_SE:
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["SE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"])
 	params:
+		bedtools="",
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWig/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
 		1
 	run:
-		create_bigWig(platform_info(), input["std"][0], input["bamfile"][0], input["chrmlen"], output["bgl"], output["bwi"], output["bgu"][0], output["bwu"][0], "")
+		create_bigWig(platform_info(), input["std"][0], input["bamfile"][0], input["chrmlen"], output["bgl"], output["bwi"], output["bgu"][0], output["bwu"][0], params["bedtools"])
 
 rule bamToBigWig_PE:
 	input:
@@ -459,13 +460,14 @@ rule bamToBigWig_PE:
 		bgu=temp(expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bedGraph", ext=["PE"])),
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"])
 	params:
+		bedtools="-pc -du",
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{{sample}}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWig/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
 		1
 	run:
-		create_bigWig(platform_info(), input["std"][0], input["bamfile"][0], input["chrmlen"], output["bgl"], output["bwi"], output["bgu"][0], output["bwu"][0], "-pc -du")
+		create_bigWig(platform_info(), input["std"][0], input["bamfile"][0], input["chrmlen"], output["bgl"], output["bwi"], output["bgu"][0], output["bwu"][0], params["bedtools"])
 
 rule stringtie_SE:
 	input:
@@ -559,20 +561,20 @@ rule quantification_SE:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"])
 	params:
 		library="--singleEnded --minMAPQ 255",
-		outdir=RESULTS_PATH+"/qorts",
+		outdir=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}", ext=["SE"]),
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
 		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
-		with open(input["std"], "r") as infile:
+		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
 		elif first_line == "SecondStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
 		else:
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
 
 rule quantification_PE:
 	input:
@@ -588,20 +590,20 @@ rule quantification_PE:
 		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
 	params:
 		library="--minMAPQ 255",
-		outdir=RESULTS_PATH+"/qorts",
+		outdir=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}", ext=["PE"]),
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
 	log:
 		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
-		with open(input["std"], "r") as infile:
+		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "FirstStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
 		elif first_line == "SecondStrand":
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
 		else:
-			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"], input["gff"], params["outdir"])))
+			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"][0])))
 
 rule report:
 	input:
