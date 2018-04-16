@@ -134,7 +134,7 @@ rule remove_rRNA_tRNA_SE:
 	params:
 		basic="--sensitive-local",
 		basename=RIBO_INDEX_PATH,
-		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
@@ -155,7 +155,7 @@ rule remove_rRNA_tRNA_PE:
 		basename=RIBO_INDEX_PATH,
 		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.fq.gz",
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=48G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
