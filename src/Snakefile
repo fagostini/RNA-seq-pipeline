@@ -47,7 +47,7 @@ rule fastqc_pre_SE:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.zip", ext=["SE"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-pre",
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/fastqc_pre.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/fastqc_pre.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-pre/{sample}.txt"
 	threads:
@@ -65,7 +65,7 @@ rule fastqc_pre_PE:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-pre",
-		cluster='-N 1 -c 2 --mem=8G -t 160:00:00 -o logs/fastqc_pre.%A.{{sample}}.log'
+		cluster='-N 1 -c 2 --mem=8G -t 160:00:00 -o logs/fastqc_pre.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-pre/{sample}.txt"
 	threads:
@@ -84,7 +84,7 @@ rule trimgalore_SE:
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
 		outdir=RESULTS_PATH+"/trim_galore",
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt",
 	run:
@@ -100,7 +100,7 @@ rule trimgalore_PE:
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file --paired --trim1",
 		outdir=RESULTS_PATH+"/trim_galore",
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt"
 	run:
@@ -130,11 +130,11 @@ rule remove_rRNA_tRNA_SE:
 		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
-		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.gz")
+		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}.gz")
 	params:
 		basic="--sensitive-local",
 		basename=RIBO_INDEX_PATH,
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
@@ -149,13 +149,13 @@ rule remove_rRNA_tRNA_PE:
 		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
-		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.gz")
+		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}.gz")
 	params:
 		basic="--sensitive-local",
 		basename=RIBO_INDEX_PATH,
 		outname=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}.fq.gz",
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
-		cluster='-N 1 -c 8 --mem=48G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=48G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
@@ -176,7 +176,7 @@ rule fastqc_post_SE:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.zip", ext=["SE"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-post",
-		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/fastqc_post.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/fastqc_post.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-post/{sample}.txt"
 	threads:
@@ -194,7 +194,7 @@ rule fastqc_post_PE:
 		gzip=temp(expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.zip", ext=["F", "R"]))
 	params:
 		outdir=RESULTS_PATH+"/fastqc-post",
-		cluster='-N 1 -c 2 --mem=8G -t 160:00:00 -o logs/fastqc_post.%A.{{sample}}.log'
+		cluster='-N 1 -c 2 --mem=8G -t 160:00:00 -o logs/fastqc_post.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/fastqc-post/{sample}.txt"
 	threads:
@@ -282,7 +282,7 @@ rule map_star_SE:
 		# unstranded="--outSAMstrandField intronMotif",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout --outSAMattributes All --outSAMtype BAM SortedByCoordinate",
 		wiggle="--outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
-		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -311,7 +311,7 @@ rule remove_duplicates_SE:
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"])
 	params:
 		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
 	shell:
@@ -347,7 +347,7 @@ rule map_star_PE:
 		# unstranded="--outSAMstrandField intronMotif",
 		output="--outFilterMultimapNmax 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterType BySJout --outSAMattributes All --outSAMtype BAM SortedByCoordinate",
 		wiggle="--outWigType wiggle --outWigStrand Stranded --outWigNorm RPM",
-		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/map_star.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
@@ -392,7 +392,7 @@ rule remove_duplicates_PE:
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"])
 	params:
 		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["PE"])
 	shell:
@@ -436,7 +436,7 @@ rule bamToBigWig_SE:
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["SE"])
 	params:
 		bedtools="",
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWig/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -456,7 +456,7 @@ rule bamToBigWig_PE:
 		bwu=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}.bigwig", ext=["PE"])
 	params:
 		bedtools="-pc -du",
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/bamToBigWig.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWig/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
@@ -474,7 +474,7 @@ rule stringtie_SE:
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["SE"])
 	params:
 		basic="-f 0.2 -m 200 -g 100 -a 10 -j 3 -t",
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/stringtie.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/stringtie.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -500,7 +500,7 @@ rule stringtie_PE:
 		exp=expand(RESULTS_PATH+"/stringtie/{{sample}}_{ext}.geneAbundance.gtf", ext=["PE"])
 	params:
 		basic="-f 0.2 -m 200 -g 100 -a 10 -j 3 -t",
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/stringtie.%A.{{sample}}.log'
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/stringtie.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
@@ -524,7 +524,7 @@ rule stringtie_merge:
 		RESULTS_PATH+"/stringtie.merged.wildtypes.gtf"
 	params:
 		basic="-T 1",
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/stringtie_merge.%A.{{sample}}.log'
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/stringtie_merge.%A.{sample}.log'
 	log:
 		RESULTS_PATH+"/logs/stringtie_merge.txt"
 	run:
@@ -538,7 +538,7 @@ rule create_flatGFF:
 	output:
 		os.path.splitext(os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH)[0]+".flat.gtf"
 	params:
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/create_flatGFF.%A.log'
 	shell:
 		"java -Xmx16G -jar {input.exe} makeFlatGff --stranded --quiet {input.gff} {output}"
 
@@ -558,7 +558,7 @@ rule quantification_SE:
 		library="--singleEnded --minMAPQ 255",
 		outdir=RESULTS_PATH+"/qorts/{sample}_SE",
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/quantification.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
@@ -587,7 +587,7 @@ rule quantification_PE:
 		library="--minMAPQ 255",
 		outdir=RESULTS_PATH+"/qorts/{sample}_PE",
 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
-		cluster='-N 1 -c 1 --mem=16G -t 160:00:00'
+		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/quantification.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
