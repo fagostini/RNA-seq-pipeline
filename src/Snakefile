@@ -165,7 +165,7 @@ rule remove_rRNA_tRNA_PE:
 		fq2 = input["fastq"][1] 
 		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} -x {params.basename} -1 {fq1} -2 {fq2} 2> {log} | gzip -c > {output.tmp}")
 		inputList = [params["outname"].replace(".fq.gz", s) for s in [".fq.1.gz", ".fq.2.gz"]]
-		# shell("python scripts/pair_fastq_fast.py -l {} -r {}".format(*inputList))
+		shell("python scripts/pair_fastq_fast.py -l {} -r {}".format(*inputList))
 		rename_out(inputList, [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])
 
 rule fastqc_post_SE:
