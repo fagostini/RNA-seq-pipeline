@@ -130,7 +130,7 @@ rule remove_rRNA_tRNA_SE:
 		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
-		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}.gz")
+		tmp=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{tmp}.gz", tmp=["temp"]))
 	params:
 		basic="--sensitive-local",
 		basename=RIBO_INDEX_PATH,
@@ -149,7 +149,7 @@ rule remove_rRNA_tRNA_PE:
 		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
-		tmp=temp(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}.gz")
+		tmp=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{tmp}.gz", tmp=["temp"]))
 	params:
 		basic="--sensitive-local",
 		basename=RIBO_INDEX_PATH,
@@ -564,9 +564,9 @@ rule quantification_SE:
 	run:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
-		if first_line == "FirstStrand":
+		if first_line == "SecondStrand":
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
-		elif first_line == "SecondStrand":
+		elif first_line == "FirstStrand":
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 		else:
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
@@ -593,9 +593,9 @@ rule quantification_PE:
 	run:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
-		if first_line == "FirstStrand":
+		if first_line == "SecondStrand":
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
-		elif first_line == "SecondStrand":
+		elif first_line == "FirstStrand":
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 		else:
 			shell(" ".join(("java -Xmx16G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
