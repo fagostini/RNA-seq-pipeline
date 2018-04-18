@@ -390,7 +390,8 @@ rule map_star_PE:
 
 rule filter_unique_PE:
 	input:
-		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
+		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"])
 	output:
 		temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]))
 	log:
@@ -398,7 +399,7 @@ rule filter_unique_PE:
 	threads:
 		8
 	run:
-		with open(output["std"][0], "r") as infile:
+		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 			if first_line == "FirstStrand":
 				strand = 1
@@ -406,7 +407,7 @@ rule filter_unique_PE:
 				strand = 2
 			else:
 				strand = 0
-		shell("sambamba view -t {threads} -h {output.tmp} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
+		shell("sambamba view -t {threads} -h {input.bam} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output}")
 
 rule remove_duplicates_PE:
 	input:
