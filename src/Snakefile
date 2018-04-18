@@ -303,6 +303,8 @@ rule filter_unique_SE:
 		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])
 	output:
 		temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]))
+	params:
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/filter_unique/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
@@ -394,6 +396,8 @@ rule filter_unique_PE:
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"])
 	output:
 		temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]))
+	params:
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/filter_unique/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
