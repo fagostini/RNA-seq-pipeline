@@ -165,7 +165,7 @@ rule remove_rRNA_tRNA_PE:
 		fq2 = input["fastq"][1] 
 		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} -x {params.basename} -1 {fq1} -2 {fq2} 2> {log} | gzip -c > {output.tmp}")
 		inputList = [params["outname"].replace(".fq.gz", s) for s in [".fq.1.gz", ".fq.2.gz"]]
-		shell("python scripts/pair_fastq_fast.py -l {} -r {}".format(*inputList))
+		shell("python {}/scripts/pair_fastq_fast.py -l {} -r {}".format(PATH, *inputList))
 		rename_out(inputList, [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])
 
 rule fastqc_post_SE:
@@ -310,7 +310,8 @@ rule filter_unique_SE:
 	threads:
 		8
 	run:
-		shell("sambamba view -t {threads} -h {input} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin 2> {log} > {output}")
+		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
+		shell("sambamba view -t {threads} -h {input} | awk -f {scriptfile} | sambamba view -t {threads} -S -f bam /dev/stdin 2> {log} > {output}")
 
 rule remove_duplicates_SE:
 	input:
@@ -411,7 +412,8 @@ rule filter_unique_PE:
 				strand = 2
 			else:
 				strand = 0
-		shell("sambamba view -t {threads} -h {input.bam} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output}")
+		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
+		shell("sambamba view -t {threads} -h {input.bam} | awk -v strType={strand} -f {scriptfile} | sambamba view -t {threads} -S -f bam /dev/stdin > {output}")
 
 rule remove_duplicates_PE:
 	input:
