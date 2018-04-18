@@ -328,7 +328,7 @@ rule remove_duplicates_SE:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
 	shell:
 		"""
-		java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
+		java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}
 		java -Xmx16G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}
 		"""
 
@@ -430,7 +430,7 @@ rule remove_duplicates_PE:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["PE"])
 	shell:
 		"""
-		java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}"
+		java -Xmx16G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}
 		java -Xmx16G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}
 		"""
 
