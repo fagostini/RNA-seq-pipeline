@@ -636,6 +636,7 @@ rule quantification_PE:
 rule report:
 	input:
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
@@ -647,6 +648,7 @@ rule report:
 		idsList = [ string for string in config["samples"] ]
 		bamList = [ os.path.basename(string).replace(".bai", "") for string in input["bam"] ]
 		cntList = [ os.path.basename(os.path.dirname(string))+"/"+os.path.basename(string) for string in input["qorts"] ]
+		stdList = [ os.path.basename(string) for string in input["strand"] ]
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
 		strList = [ os.path.basename(string) for string in input["stringtie"] ]
 		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList, "StringTie (GTF)" : strList}, index=idsList)
@@ -655,6 +657,7 @@ rule report:
 rule report_short:
 	input:
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
@@ -665,6 +668,7 @@ rule report_short:
 		idsList = [ string for string in config["samples"] ]
 		bamList = [ os.path.basename(string).replace(".bai", "") for string in input["bam"] ]
 		cntList = [ os.path.basename(os.path.dirname(string))+"/"+os.path.basename(string) for string in input["qorts"] ]
+		stdList = [ os.path.basename(string) for string in input["strand"] ]
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
 		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList}, index=idsList)
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
