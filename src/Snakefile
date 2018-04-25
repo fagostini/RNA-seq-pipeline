@@ -504,7 +504,7 @@ rule bamToBigWigCPM_SE:
 	output:
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}_CPM.bigwig", ext=["SE"], typ=["plus", "minus"])
 	params:
-		deeptools="--normalizeUsing CPM --binSize 10 --smoothLength 30",
+		deeptools="--normalizeUsing CPM --binSize 20 --smoothLength 60",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/bamToBigWigCPM.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWigCPM/{{sample}}_{ext}.txt", ext=["SE"])
@@ -530,7 +530,7 @@ rule bamToBigWigCPM_PE:
 	output:
 		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}_CPM.bigwig", ext=["PE"], typ=["plus", "minus"])
 	params:
-		deeptools="--normalizeUsing CPM --binSize 10 --smoothLength 30",
+		deeptools="--normalizeUsing CPM --binSize 20 --smoothLength 60",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/bamToBigWigCPM.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWigCPM/{{sample}}_{ext}.txt", ext=["PE"])
