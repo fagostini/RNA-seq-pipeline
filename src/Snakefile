@@ -533,7 +533,7 @@ rule bamToBigWigCPM_PE:
 		deeptools="--normalizeUsing CPM",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/bamToBigWigCPM.%A.{sample}.log'
 	log:
-		expand(RESULTS_PATH+"/logs/bamToBigWig/{{sample}}_{ext}.txt", ext=["PE"])
+		expand(RESULTS_PATH+"/logs/bamToBigWigCPM/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
 		8
 	run:
