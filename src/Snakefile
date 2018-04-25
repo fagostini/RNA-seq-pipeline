@@ -513,15 +513,15 @@ rule bamToBigWigCPM_SE:
 	run:
 		with open(input.std[0], "r") as infile:
 			first_line = infile.readline()
-		if first_line == "FirstStrand":
+		if first_line == "SecondStrand":
 			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
 			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
-		elif first_line == "SecondStrand":
+		elif first_line == "FirstStrand":
 			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
 			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
 		else:
-			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
-			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
+			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
+			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
 
 rule bamToBigWigCPM_PE:
 	input:
@@ -539,15 +539,15 @@ rule bamToBigWigCPM_PE:
 	run:
 		with open(input.std[0], "r") as infile:
 			first_line = infile.readline()
-		if first_line == "FirstStrand":
+		if first_line == "SecondStrand":
 			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
 			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
-		elif first_line == "SecondStrand":
+		elif first_line == "FirstStrand":
 			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
 			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
 		else:
-			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
-			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
+			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
+			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
 
 rule stringtie_SE:
 	input:
