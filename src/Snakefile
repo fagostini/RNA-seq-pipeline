@@ -138,7 +138,7 @@ rule remove_rRNA_tRNA_SE:
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
-		8
+		24
 	run:
 		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x {params.basename} -U {input.fastq} 2> {log} | gzip -c > {output.tmp}")
 
@@ -159,7 +159,7 @@ rule remove_rRNA_tRNA_PE:
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
-		8
+		24
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1] 
@@ -229,17 +229,15 @@ rule index_star:
 		genome=os.path.splitext(GENOME_PATH)[0] if os.path.splitext(GENOME_PATH)[1] == ".gz" else GENOME_PATH,
 		annotation=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH
 	output:
-		outdir=STAR_INDEX_PATH,
-		outfile=STAR_INDEX_PATH+"/SA",
-		index=STAR_INDEX_PATH+"/SAindex",
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	params:
+		outdir=STAR_INDEX_PATH,
 		overhang="--sjdbOverhang 99",
 		cluster='-N 1 -c 8 --mem=64G -t 160:00:00 -o logs/index_star.%A.log'
 	threads:
-		8
+		24
 	run:
-		shell("STAR --runMode genomeGenerate --runThreadN {threads} --genomeDir {output.outdir} --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annotation} {params.overhang}")
+		shell("STAR --runMode genomeGenerate --runThreadN {threads} --genomeDir {params.outdir} --genomeFastaFiles {input.genome} --sjdbGTFfile {input.annotation} {params.overhang}")
 
 def define_strand(counts, outfile):
 	df = pd.read_table(counts, sep="\t", index_col=0, names=["Unstranded", "FirstStrand", "SecondStrand"])
@@ -259,21 +257,20 @@ rule map_star_SE:
 	input:
 		# html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["SE"]),
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"]),
-		genome=STAR_INDEX_PATH,
-		index=STAR_INDEX_PATH+"/SAindex",
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		tmp=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])),
 		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"])),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["SE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["SE"]),
-		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["SE"])),
-		spa=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["SE"])),
+		sge=temp(directory(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["SE"]))),
+		spa=temp(directory(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["SE"]))),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"]),
 		# wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
 		# mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["SE"], num=["1", "2"])),
 		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["SE"])
 	params:
+		genome=STAR_INDEX_PATH,
 		outdir=RESULTS_PATH+"/mapped",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
 		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
@@ -289,12 +286,12 @@ rule map_star_SE:
 	run:
 		prefix = "/".join((params["outdir"], os.path.basename(output["tmp"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
-			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
 			# shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 	
 		elif config['seq_type'] == "NETseq":
-			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
 			# shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 
@@ -336,7 +333,6 @@ rule map_star_PE:
 	input:
 		# html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
 		fastq=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"]),
-		genome=STAR_INDEX_PATH,
 		index=STAR_INDEX_PATH+"/SAindex",
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
@@ -344,13 +340,14 @@ rule map_star_PE:
 		# bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"])),
 		cnt=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.ReadsPerGene.out.tab", ext=["PE"]),
 		jct=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.SJ.out.tab", ext=["PE"]),
-		sge=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["PE"])),
-		spa=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["PE"])),
+		sge=temp(directory(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARgenome", ext=["PE"]))),
+		spa=temp(directory(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}._STARpass1", ext=["PE"]))),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		# wig=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.Unique.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
 		# mul=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Signal.UniqueMultiple.str{num}.out.wig", ext=["PE"], num=["1", "2"])),
 		log=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Log.final.out", ext=["PE"])
 	params:
+		genome=STAR_INDEX_PATH,
 		outdir=RESULTS_PATH+"/mapped",
 		alignemnt="--readFilesCommand zcat --genomeLoad NoSharedMemory --twopassMode Basic --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1 --limitBAMsortRAM 60000000000",
 		rna="--alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --quantMode GeneCounts",
@@ -366,7 +363,7 @@ rule map_star_PE:
 	run:
 		prefix = "/".join((params["outdir"], os.path.basename(output["tmp"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
-			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
 			# with open(output["std"][0], "r") as infile:
 			# 	first_line = infile.readline()
@@ -379,7 +376,7 @@ rule map_star_PE:
 			# shell("sambamba view -t {threads} -h {output.tmp} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 	
 		elif config['seq_type'] == "NETseq":
-			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
+			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
 			# with open(output["std"][0], "r") as infile:
 			# 	first_line = infile.readline()

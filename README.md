@@ -11,7 +11,7 @@ It was used by Federico for his `intergenic transcription` project, and then gen
 
 __Requirements__
 
-* [Python](https://www.python.org/downloads/) >= 3.6 (`os`, `platform`, `pandas`, `numpy`, `string`, `re` and `itertools` modules)
+* [Python](https://www.python.org/downloads/) >= 3.6 (`os`, `platform`, `pandas`, `numpy`, `pyBigWig`, `string`, `re` and `itertools` modules)
 * [Snakemake](http://snakemake.readthedocs.io/en/stable/)
 * [_FastQC_](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 * [_Trim Galore!_](https://www.bioinformatics.babraham.ac.uk/projects/trim_galore/) (and its dependency [_Cutadapt_](https://cutadapt.readthedocs.io/en/stable/)) 
