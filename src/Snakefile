@@ -499,7 +499,7 @@ rule bamToBigWigCPM_SE:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["SE"])
 	output:
-		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}_CPM.bigwig", ext=["SE"], typ=["plus", "minus"])
+		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}_CPM.bigwig", ext=["SE"], typ=["plus", "minus", "unstranded"])
 	params:
 		deeptools="--normalizeUsing CPM --binSize 20 --smoothLength 60",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/bamToBigWigCPM.%A.{sample}.log'
@@ -519,13 +519,14 @@ rule bamToBigWigCPM_SE:
 		else:
 			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
 			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
+		shell("bamCoverage -b {} -o {} --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[2], threads, params.deeptools, log[0]))
 
 rule bamToBigWigCPM_PE:
 	input:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"])
 	output:
-		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}_CPM.bigwig", ext=["PE"], typ=["plus", "minus"])
+		bwi=expand(RESULTS_PATH+"/coverage/{{sample}}_{ext}_{typ}_CPM.bigwig", ext=["PE"], typ=["plus", "minus", "unstranded"])
 	params:
 		deeptools="--normalizeUsing CPM --binSize 20 --smoothLength 60",
 		cluster='-N 1 -c 8 --mem=16G -t 160:00:00 -o logs/bamToBigWigCPM.%A.{sample}.log'
@@ -545,6 +546,7 @@ rule bamToBigWigCPM_PE:
 		else:
 			shell("bamCoverage -b {} -o {} --filterRNAstrand reverse --numberOfProcessors {} {} > {}".format(input.bamfile, output.bwi[0], threads, params.deeptools, log[0]))
 			shell("bamCoverage -b {} -o {} --filterRNAstrand forward --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[1], threads, params.deeptools, log[0]))
+		shell("bamCoverage -b {} -o {} --numberOfProcessors {} {} >> {}".format(input.bamfile, output.bwi[2], threads, params.deeptools, log[0]))
 
 rule stringtie_SE:
 	input:
@@ -689,7 +691,7 @@ rule report:
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		cpmbw=expand(RESULTS_PATH+"/coverage/{}_{}_{}_CPM.bigwig".format(sample, ext, typ) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ) for typ in ["plus", "minus"]),
+		cpmbw=expand(RESULTS_PATH+"/coverage/{}_{}_{}_CPM.bigwig".format(sample, ext, typ) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ) for typ in ["plus", "minus", "unstranded"]),
 		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
@@ -713,7 +715,7 @@ rule report_short:
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		cpmbw=expand(RESULTS_PATH+"/coverage/{}_{}_{}_CPM.bigwig".format(sample, ext, typ) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ) for typ in ["plus", "minus"]),
+		cpmbw=expand(RESULTS_PATH+"/coverage/{}_{}_{}_CPM.bigwig".format(sample, ext, typ) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ) for typ in ["plus", "minus", "unstranded"]),
 		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
 		RESULTS_PATH+"/sampleTableShort.tsv"
