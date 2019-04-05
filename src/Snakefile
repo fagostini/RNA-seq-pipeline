@@ -138,7 +138,7 @@ rule remove_rRNA_tRNA_SE:
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
-		24
+		8
 	run:
 		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x {params.basename} -U {input.fastq} 2> {log} | gzip -c > {output.tmp}")
 
@@ -159,7 +159,7 @@ rule remove_rRNA_tRNA_PE:
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
-		24
+		8
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1] 
@@ -658,6 +658,7 @@ rule quantification_SE:
 rule quantification_PE:
 	input:
 		exe=PATH+"/executables/jar/QoRTs.jar",
+		picard=PATH+"/executables/jar/picard.jar",
 		gff=os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH,
 		flatfile=os.path.splitext(os.path.splitext(ANNOTATION_PATH)[0] if os.path.splitext(ANNOTATION_PATH)[1] == ".gz" else ANNOTATION_PATH)[0]+".flat.gtf",
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
@@ -665,8 +666,9 @@ rule quantification_PE:
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
-		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["PE"]),
-		expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
+		fixed=temp(expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.FixedMate.bam", ext=["PE"])),
+		detail=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["PE"]),
+		deseq=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
 	params:
 		library="--minMAPQ 255",
 		outdir=RESULTS_PATH+"/qorts/{sample}_PE",
@@ -675,6 +677,7 @@ rule quantification_PE:
 	log:
 		expand(RESULTS_PATH+"/logs/qorts/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
+		shell("".join(("java -Xmx16G -jar ", input["picard"], " FixMateInformation I=", input["bamfile"][0], " O=", output["fixed"][0])))
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
 		if first_line == "SecondStrand":
@@ -686,8 +689,8 @@ rule quantification_PE:
 
 rule report:
 	input:
-		qc1=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		qc2=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		# qc1=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		# qc2=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
