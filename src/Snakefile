@@ -165,7 +165,7 @@ rule remove_rRNA_tRNA_PE:
 		fq2 = input["fastq"][1] 
 		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} -x {params.basename} -1 {fq1} -2 {fq2} 2> {log} | gzip -c > {output.tmp}")
 		inputList = [params["outname"].replace(".fq.gz", s) for s in [".fq.1.gz", ".fq.2.gz"]]
-		shell("python {}/scripts/pair_fastq_fast.py -l {} -r {}".format(PATH, *inputList))
+		# shell("python {}/scripts/pair_fastq_fast.py -l {} -r {}".format(PATH, *inputList))
 		rename_out(inputList, [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])
 
 rule fastqc_post_SE:
@@ -319,7 +319,7 @@ rule remove_duplicates_SE:
 		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["SE"]),
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"])
 	params:
-		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
+		basic="REMOVE_DUPLICATES={} ASSUME_SORT_ORDER=coordinate".format(config['global']['remove_duplicates']),
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
@@ -421,7 +421,7 @@ rule remove_duplicates_PE:
 		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["PE"]),
 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"])
 	params:
-		basic="REMOVE_DUPLICATES=true ASSUME_SORT_ORDER=coordinate",
+		basic="REMOVE_DUPLICATES={} ASSUME_SORT_ORDER=coordinate".format(config['global']['remove_duplicates']),
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["PE"])
