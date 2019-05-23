@@ -4,3 +4,4 @@ results
 annotation
 genome
 logs/*.log
+.snakemake/*
