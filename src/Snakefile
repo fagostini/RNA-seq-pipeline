@@ -119,7 +119,7 @@ rule index_rRNA_tRNA:
 	log:
 		"logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
 	threads:
-		8
+		12
 	shell:
 		"bowtie2-build --threads {threads} {input} {params.basename} &> {log}"
 
@@ -138,7 +138,7 @@ rule remove_rRNA_tRNA_SE:
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
-		8
+		12
 	run:
 		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x {params.basename} -U {input.fastq} 2> {log} | gzip -c > {output.tmp}")
 
@@ -159,7 +159,7 @@ rule remove_rRNA_tRNA_PE:
 	log:
 		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
 	threads:
-		8
+		12
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1] 
@@ -283,7 +283,7 @@ rule map_star_SE:
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
-		8
+		12
 	run:
 		prefix = "/".join((params["outdir"], os.path.basename(output["tmp"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
@@ -306,7 +306,7 @@ rule filter_unique_SE:
 	log:
 		expand(RESULTS_PATH+"/logs/filter_unique/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
-		8
+		6
 	run:
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
 		shell("sambamba view -t {threads} -h {input} | awk -f {scriptfile} | sambamba view -t {threads} -S -f bam /dev/stdin 2> {log} > {output}")
@@ -360,7 +360,7 @@ rule map_star_PE:
 	log:
 		expand(RESULTS_PATH+"/logs/star_mapped/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
-		8
+		12
 	run:
 		prefix = "/".join((params["outdir"], os.path.basename(output["tmp"][0]).partition(".")[0]+"."))
 		if config['seq_type'] == "RNAseq":
@@ -400,7 +400,7 @@ rule filter_unique_PE:
 	log:
 		expand(RESULTS_PATH+"/logs/filter_unique/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
-		8
+		6
 	run:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
@@ -507,7 +507,7 @@ rule bamToBigWigCPM_SE:
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWigCPM/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
-		8
+		6
 	run:
 		with open(input.std[0], "r") as infile:
 			first_line = infile.readline()
@@ -534,7 +534,7 @@ rule bamToBigWigCPM_PE:
 	log:
 		expand(RESULTS_PATH+"/logs/bamToBigWigCPM/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
-		8
+		6
 	run:
 		with open(input.std[0], "r") as infile:
 			first_line = infile.readline()
@@ -563,7 +563,7 @@ rule stringtie_SE:
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["SE"])
 	threads:
-		8
+		6
 	run:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
@@ -589,7 +589,7 @@ rule stringtie_PE:
 	log:
 		expand(RESULTS_PATH+"/logs/stringtie/{{sample}}_{ext}.txt", ext=["PE"])
 	threads:
-		8
+		6
 	run:
 		with open(input["std"][0], "r") as infile:
 			first_line = infile.readline()
