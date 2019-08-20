@@ -743,8 +743,8 @@ rule report:
 
 rule report_short:
 	input:
-		qc1=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		qc2=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		qc1=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F","R"] if len(config["samples"][sample])==2 else ["SE"] )),
+		qc2=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F","R"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
