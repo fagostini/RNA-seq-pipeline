@@ -26,10 +26,12 @@ def platform_info():
 
 rule all:
 	input:
+		RESULTS_PATH+"/sampleMetrics.tsv",
 		RESULTS_PATH+"/sampleTable.tsv"
 
 rule map:
 	input:
+		RESULTS_PATH+"/sampleTable.tsv",
 		RESULTS_PATH+"/sampleTableShort.tsv"
 
 def rename_out(inlist, suffix, outdir, outlist):
@@ -86,7 +88,7 @@ rule trimgalore_SE:
 		outdir=RESULTS_PATH+"/trim_galore",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt",
+		RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt",
 	run:
 		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
 		rename_out(input["fastq"], ["_trimmed.fq.gz"], params["outdir"], output['fastq'])
@@ -102,7 +104,7 @@ rule trimgalore_PE:
 		outdir=RESULTS_PATH+"/trim_galore",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/trim_galore/{sample}.fq.gz_trimming_report.txt"
+		RESULTS_PATH+"/logs/trim_galore/{sample}_PE.fq.gz_trimming_report.txt"
 	run:
 		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
 		rename_out(input["fastq"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
@@ -136,7 +138,7 @@ rule remove_rRNA_tRNA_SE:
 		basename=RIBO_INDEX_PATH,
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
+		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_SE_rRNA_tRNA_removed.log"
 	threads:
 		12
 	run:
@@ -157,7 +159,7 @@ rule remove_rRNA_tRNA_PE:
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
 		cluster='-N 1 -c 8 --mem=48G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_rRNA_tRNA_removed.log"
+		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_PE_rRNA_tRNA_removed.log"
 	threads:
 		12
 	run:
@@ -412,6 +414,7 @@ rule filter_unique_PE:
 				strand = 0
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
 		shell("sambamba view -t {threads} -h {input.bam} | awk -v strType={strand} -f {scriptfile} | sambamba view -t {threads} -S -f bam /dev/stdin > {output}")
+		shell("sambamba flagstat -t {threads} {output} 2>/dev/null > {log}")
 
 rule remove_duplicates_PE:
 	input:
@@ -715,6 +718,39 @@ rule quantification_PE:
 # 			shell(" ".join(("java -Xmx12G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 # 		else:
 # 			shell(" ".join(("java -Xmx12G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
+
+rule metrics:
+	input:
+		trimmed=expand(RESULTS_PATH+"/logs/trim_galore/{}_{}.fq.gz_trimming_report.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		ribosomal=expand(RESULTS_PATH+"/logs/rRNA_tRNA_removed/{}_{}_rRNA_tRNA_removed.log".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		mapped=expand(RESULTS_PATH+"/mapped/{}_{}.Log.final.out".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		duplicated=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.summary.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+	output:
+		RESULTS_PATH+"/sampleMetrics.tsv"
+	params:
+		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00 -o logs/report.%A.log'
+	run:
+		idsList = [ string for string in config["samples"] ]
+		iniList = [ string for string in shell("grep -m 1 'sequences processed in total' {input.trimmed} | awk '{print $1}'", iterable=True) ]
+		triList = [ string for string in shell("grep -m 1 'shorter than the length cutoff' {input.trimmed} | awk '{print $(NF-1)}'", iterable=True) ]
+		ribList = [ string for string in shell("grep '1 time' {input.ribosomal} | awk '{s+=$1}END{print s}'", iterable=True) ]
+		uniList = [ string for string in shell("grep 'Uniquely mapped reads number' {input.mapped} | awk '{print $NF}'", iterable=True) ]
+		mulList = [ string for string in shell("grep 'Number of reads mapped to too many loci' {input.mapped} | awk '{print $NF}'", iterable=True) ]
+		strList = [ string for string in shell("awk '{print $1}' {input.strand}", iterable=True) ]
+		valList = [ string for string in shell("grep -A 1 {input.duplicated} | tail -1 | awk -F '\t' '{print $2+$3}'", iterable=True) ]
+		dupList = [ string for string in shell("grep -A 1 {input.duplicated} | tail -1 | awk -F '\t' '{print $6+$7}'", iterable=True) ]
+		finList = [ string for string in shell("grep -A 1 {input.duplicated} | tail -1 | awk -F '\t' '{print $NF}'", iterable=True) ]
+		exoList = [ string for string in shell("grep -w 'ReadPairs_UniqueGene' {input.qorts} | awk '{print $2}'", iterable=True) ]
+		intList = [ string for string in shell("grep -w 'ReadPairs_NoGene_Intron' {input.qorts} | awk '{print $2}'", iterable=True) ]
+		splList = [ string for string in shell("grep -w 'SpliceEvents' {input.qorts} | awk '{print $2}'", iterable=True) ]
+		ambList = [ string for string in shell("grep -w 'ReadPairs_AmbigGene' {input.qorts} | awk '{print $2}'", iterable=True) ]
+		nogList = [ string for string in shell("grep 'ReadPairs_NoGene_' {input.qorts} | grep -v 'Intron' | '{s+=$2}END{print s}'", iterable=True) ]
+		DF = pd.DataFrame({"Total reads" : iniList, "Trimmed": triList, "Ribosomal" : ribList, "Uniquely mapped": uniList, "Multi-hits mapped" : mulList,
+						   "Library strand" : strList, "Valid": valList, "Duplicated" : dupList, "Usable reads": finList,
+						   "Exonic" : exoList, "Intronic": intList, "Spliced" : splList, "Ambiguous": ambList, "Intergenic" : nogList,}, index=idsList)
+		DF.to_csv(output[0], sep="\t", index_label="Sample")
 
 rule report:
 	input:
