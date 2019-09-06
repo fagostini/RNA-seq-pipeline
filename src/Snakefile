@@ -24,15 +24,15 @@ def platform_info():
 	else:
 		return(".".join((platform.system().lower(), platform.machine())))
 
-rule all:
+rule map:
 	input:
 		RESULTS_PATH+"/sampleMetrics.tsv",
 		RESULTS_PATH+"/sampleTable.tsv"
 
-rule map:
+rule all:
 	input:
-		RESULTS_PATH+"/sampleTable.tsv",
-		RESULTS_PATH+"/sampleTableShort.tsv"
+		RESULTS_PATH+"/sampleMetrics.tsv",
+		RESULTS_PATH+"/sampleTableLong.tsv"
 
 def rename_out(inlist, suffix, outdir, outlist):
 	for i in range(len(inlist)):
@@ -311,7 +311,7 @@ rule filter_unique_SE:
 		6
 	run:
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
-		shell("sambamba view -t {threads} -h {input} | awk -f {scriptfile} | sambamba view -t {threads} -S -f bam /dev/stdin 2> {log} > {output}")
+		shell("sambamba view -t {threads} -h {input} 2> {log} | awk -f {scriptfile} 2>> {log} | sambamba view -t {threads} -S -f bam /dev/stdin 2>> {log} > {output}")
 
 rule remove_duplicates_SE:
 	input:
@@ -413,8 +413,7 @@ rule filter_unique_PE:
 			else:
 				strand = 0
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
-		shell("sambamba view -t {threads} -h {input.bam} | awk -v strType={strand} -f {scriptfile} | sambamba view -t {threads} -S -f bam /dev/stdin > {output}")
-		shell("sambamba flagstat -t {threads} {output} 2>/dev/null > {log}")
+		shell("sambamba view -t {threads} -h {input.bam} 2> {log} | awk -v strType={strand} -f {scriptfile} 2>> {log} | sambamba view -t {threads} -S -f bam /dev/stdin 2>> {log} > {output}")
 
 rule remove_duplicates_PE:
 	input:
@@ -754,15 +753,11 @@ rule metrics:
 
 rule report:
 	input:
-		# qc1=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		# qc2=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		cpmbw=expand(RESULTS_PATH+"/coverage/{}_{}_{}_CPM.bigwig".format(sample, ext, typ) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ) for typ in ["plus", "minus", "unstranded"]),
-		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		# qorts2=expand(RESULTS_PATH+"/qorts_new/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
 		RESULTS_PATH+"/sampleTable.tsv"
 	params:
@@ -773,21 +768,19 @@ rule report:
 		cntList = [ os.path.basename(os.path.dirname(string))+"/"+os.path.basename(string) for string in input["qorts"] ]
 		stdList = [ os.path.basename(string) for string in input["strand"] ]
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
-		strList = [ os.path.basename(string) for string in input["stringtie"] ]
-		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList, "StringTie (GTF)" : strList}, index=idsList)
+		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList}, index=idsList)
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
 
-rule report_short:
+rule report_long:
 	input:
-		qc1=expand(RESULTS_PATH+"/fastqc-pre/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F","R"] if len(config["samples"][sample])==2 else ["SE"] )),
-		qc2=expand(RESULTS_PATH+"/fastqc-post/{}_{}_fastqc.html".format(sample, ext) for sample in config["samples"] for ext in ( ["F","R"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bam=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.bam.bai".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		bigwig=expand(RESULTS_PATH+"/coverage/{}_{}.bigwig".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		cpmbw=expand(RESULTS_PATH+"/coverage/{}_{}_{}_CPM.bigwig".format(sample, ext, typ) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ) for typ in ["plus", "minus", "unstranded"]),
-		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
+		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.geneCounts.detailed.txt.gz".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		stringtie=expand(RESULTS_PATH+"/stringtie/{}_{}.StringTie.gtf".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
-		RESULTS_PATH+"/sampleTableShort.tsv"
+		RESULTS_PATH+"/sampleTableLong.tsv"
 	params:
 		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00 -o logs/report.%A.log'
 	run:
@@ -796,7 +789,8 @@ rule report_short:
 		cntList = [ os.path.basename(os.path.dirname(string))+"/"+os.path.basename(string) for string in input["qorts"] ]
 		stdList = [ os.path.basename(string) for string in input["strand"] ]
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
-		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList}, index=idsList)
+		strList = [ os.path.basename(string) for string in input["stringtie"] ]
+		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList, "StringTie (GTF)" : strList}, index=idsList)
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
 
 # Individual dag
