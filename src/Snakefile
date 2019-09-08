@@ -701,7 +701,7 @@ rule metrics:
 		mapped=expand(RESULTS_PATH+"/mapped/{}_{}.Log.final.out".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		duplicated=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.summary.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		qorts=expand(RESULTS_PATH+"/qorts/{}_{}/QC.summary.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] ))
 	output:
 		RESULTS_PATH+"/sampleMetrics.tsv"
 	params:
@@ -714,9 +714,9 @@ rule metrics:
 		uniList = [ string for string in shell("for infile in {input.mapped}; do grep 'Uniquely mapped reads number' $infile | awk '{{print $NF}}'; done", iterable=True) ]
 		mulList = [ string for string in shell("for infile in {input.mapped}; do grep 'Number of reads mapped to too many loci' $infile | awk '{{print $NF}}'; done", iterable=True) ]
 		strList = [ string for string in shell("for infile in {input.strand}; do awk '{{print $1}}' $infile; done", iterable=True) ]
-		valList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 $infile | tail -1 | awk -F '\\t' '{{print $2+$3}}'; done", iterable=True) ]
-		dupList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 $infile | tail -1 | awk -F '\\t' '{{print $6+$7}}'; done", iterable=True) ]
-		finList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 $infile | tail -1 | awk -F '\\t' '{{print $NF}}'; done", iterable=True) ]
+		valList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $2+$3}}'; done", iterable=True) ]
+		dupList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $6+$7}}'; done", iterable=True) ]
+		finList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $NF}}'; done", iterable=True) ]
 		exoList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_UniqueGene' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		intList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_NoGene_Intron' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		splList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'SpliceEvents' $infile | awk '{{print $2}}'; done", iterable=True) ]
