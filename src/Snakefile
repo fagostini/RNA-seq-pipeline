@@ -642,7 +642,7 @@ rule quantification_SE:
 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
 	output:
 		detail=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["SE"]),
-		deseq=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"])
+		deseq=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["SE"]),
 		qc=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.summary.txt", ext=["SE"])
 	params:
 		library="--singleEnded --minMAPQ 255",
@@ -674,7 +674,7 @@ rule quantification_PE:
 	output:
 		fixed=temp(expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.FixedMate.bam", ext=["PE"])),
 		detail=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["PE"]),
-		deseq=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
+		deseq=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"]),
 		qc=expand(RESULTS_PATH+"/qorts/{{sample}}_{ext}/QC.summary.txt", ext=["PE"])
 	params:
 		library="--minMAPQ 255",
