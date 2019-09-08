@@ -722,9 +722,9 @@ rule metrics:
 		splList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'SpliceEvents' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		ambList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_AmbigGene' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		nogList = [ string for string in shell("for infile in {input.qorts}; do grep 'ReadPairs_NoGene_' $infile | grep -v 'Intron' | awk '{{s+=$2}}END{{print s}}'; done", iterable=True) ]
-		DF = pd.DataFrame({"Total reads" : iniList, "Trimmed": triList, "Ribosomal" : ribList, "Uniquely mapped": uniList, "Multi-hits mapped" : mulList,
-						   "Library strand" : strList, "Valid": valList, "Duplicated" : dupList, "Usable reads": finList,
-						   "Exonic" : exoList, "Intronic": intList, "Spliced" : splList, "Ambiguous": ambList, "Intergenic" : nogList}, index=idsList)
+		DF = pd.DataFrame({"Total reads": iniList, "Trimmed": triList, "Ribosomal": ribList, "Uniquely mapped": uniList, "Multi-hits mapped": mulList,
+						   "Library strand": strList, "Valid": valList, "Duplicated": dupList, "Usable reads": finList,
+						   "Exonic": exoList, "Intronic": intList, "Spliced": splList, "Ambiguous": ambList, "Intergenic": nogList}, index=idsList)
 		DF = DF[["Total reads", "Trimmed", "Ribosomal", "Uniquely mapped", "Multi-hits mapped", "Library strand", "Valid", "Duplicated", "Usable reads", "Exonic", "Intronic", "Spliced", "Ambiguous", "Intergenic"]]
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
 
@@ -745,7 +745,8 @@ rule report:
 		cntList = [ os.path.basename(os.path.dirname(string))+"/"+os.path.basename(string) for string in input["qorts"] ]
 		stdList = [ os.path.basename(string) for string in input["strand"] ]
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
-		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList}, index=idsList)
+		DF = pd.DataFrame({"BamFile": bamList, "GeneCount": cntList, "LibraryStrand": stdList, "BigWig": wigList}, index=idsList)
+		DF = DF[["BamFile", "GeneCount", "LibraryStrand", "BigWig"]]
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
 
 rule report_long:
@@ -768,6 +769,7 @@ rule report_long:
 		wigList = [ os.path.basename(string) for string in input["bigwig"] ]
 		strList = [ os.path.basename(string) for string in input["stringtie"] ]
 		DF = pd.DataFrame({"BamFile" : bamList, "GeneCount": cntList, "LibraryStrand" : stdList, "BigWig": wigList, "StringTie (GTF)" : strList}, index=idsList)
+		DF = DF[["BamFile", "GeneCount", "LibraryStrand", "BigWig", "StringTie (GTF)"]]
 		DF.to_csv(output[0], sep="\t", index_label="Sample")
 
 # Individual dag
