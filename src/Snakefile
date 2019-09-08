@@ -690,34 +690,6 @@ rule quantification_PE:
 		else:
 			shell(" ".join(("java -Xmx12G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
 
-# rule quantification_new_PE:
-# 	input:
-# 		exe=PATH+"/executables/jar/QoRTs.jar",
-# 		gff="/mnt/Storage2/RNAseq_Manuscript/New_regions_noSpaces.gff3",
-# 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
-# 		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]),
-# 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"]),
-# 		chrmlen=STAR_INDEX_PATH+"/chrNameLength.txt"
-# 	output:
-# 		detail=expand(RESULTS_PATH+"/qorts_new/{{sample}}_{ext}/QC.geneCounts.detailed.txt.gz", ext=["PE"]),
-# 		deseq=expand(RESULTS_PATH+"/qorts_new/{{sample}}_{ext}/QC.geneCounts.formatted.for.DESeq.txt.gz", ext=["PE"])
-# 	params:
-# 		library="--minMAPQ 255",
-# 		outdir=RESULTS_PATH+"/qorts_new/{sample}_PE",
-# 		functions="StrandCheck,GeneCalcs,writeKnownSplices,writeNovelSplices,chromCounts,writeGenewiseGeneBody,writeBiotypeCounts,calcDetailedGeneCounts,writeDESeq,writeDEXSeq,writeJunctionSeqCounts",
-# 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/quantification.%A.{sample}.log'
-# 	log:
-# 		expand(RESULTS_PATH+"/logs/qorts_new/{{sample}}_{ext}.txt", ext=["SE"])
-# 	run:
-# 		with open(input["std"][0], "r") as infile:
-# 			first_line = infile.readline()
-# 		if first_line == "SecondStrand":
-# 			shell(" ".join(("java -Xmx12G -jar", input["exe"], "QC --stranded", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
-# 		elif first_line == "FirstStrand":
-# 			shell(" ".join(("java -Xmx12G -jar", input["exe"], "QC --stranded --stranded_fr_secondstrand", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
-# 		else:
-# 			shell(" ".join(("java -Xmx12G -jar", input["exe"], "QC", params["library"], "--runFunctions", params["functions"], "--chromSizes", input["chrmlen"], input["bamfile"][0], input["gff"], params["outdir"])))
-
 rule metrics:
 	input:
 		trimmed=expand(RESULTS_PATH+"/logs/trim_galore/{}_{}.fq.gz_trimming_report.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
@@ -732,20 +704,20 @@ rule metrics:
 		cluster='-N 1 -c 1 --mem=4GB -t 160:00:00 -o logs/report.%A.log'
 	run:
 		idsList = [ string for string in config["samples"] ]
-		iniList = [ string for string in shell("grep -m 1 'sequences processed in total' {input.trimmed} | awk '{{print $1}}'", iterable=True) ]
-		triList = [ string for string in shell("grep -m 1 'shorter than the length cutoff' {input.trimmed} | awk '{{print $(NF-1)}}'", iterable=True) ]
-		ribList = [ string for string in shell("grep '1 time' {input.ribosomal} | awk '{{s+=$1}}END{{print s}}'", iterable=True) ]
-		uniList = [ string for string in shell("grep 'Uniquely mapped reads number' {input.mapped} | awk '{{print $NF}}'", iterable=True) ]
-		mulList = [ string for string in shell("grep 'Number of reads mapped to too many loci' {input.mapped} | awk '{{print $NF}}'", iterable=True) ]
-		strList = [ string for string in shell("awk '{{print $1}}' {input.strand}", iterable=True) ]
-		valList = [ string for string in shell("grep -A 1 {input.duplicated} | tail -1 | awk -F '\\t' '{{print $2+$3}}'", iterable=True) ]
-		dupList = [ string for string in shell("grep -A 1 {input.duplicated} | tail -1 | awk -F '\\t' '{{print $6+$7}}'", iterable=True) ]
-		finList = [ string for string in shell("grep -A 1 {input.duplicated} | tail -1 | awk -F '\\t' '{{print $NF}}'", iterable=True) ]
-		exoList = [ string for string in shell("grep -w 'ReadPairs_UniqueGene' {input.qorts} | awk '{{print $2}}'", iterable=True) ]
-		intList = [ string for string in shell("grep -w 'ReadPairs_NoGene_Intron' {input.qorts} | awk '{{print $2}}'", iterable=True) ]
-		splList = [ string for string in shell("grep -w 'SpliceEvents' {input.qorts} | awk '{{print $2}}'", iterable=True) ]
-		ambList = [ string for string in shell("grep -w 'ReadPairs_AmbigGene' {input.qorts} | awk '{{print $2}}'", iterable=True) ]
-		nogList = [ string for string in shell("grep 'ReadPairs_NoGene_' {input.qorts} | grep -v 'Intron' | awk '{{s+=$2}}END{{print s}}'", iterable=True) ]
+		iniList = [ string for string in shell("for infile in {input.trimmed}; do grep -m 1 'sequences processed in total' $infile | awk '{{print $1}}'; done", iterable=True) ]
+		triList = [ string for string in shell("for infile in {input.trimmed}; do grep -m 1 'shorter than the length cutoff' $infile | awk '{{print $(NF-1)}}'; done", iterable=True) ]
+		ribList = [ string for string in shell("for infile in {input.ribosomal}; do grep '1 time' $infile | awk '{{s+=$1}}END{{print s}}'; done", iterable=True) ]
+		uniList = [ string for string in shell("for infile in {input.mapped}; do grep 'Uniquely mapped reads number' $infile | awk '{{print $NF}}'; done", iterable=True) ]
+		mulList = [ string for string in shell("for infile in {input.mapped}; do grep 'Number of reads mapped to too many loci' $infile | awk '{{print $NF}}'; done", iterable=True) ]
+		strList = [ string for string in shell("for infile in {input.strand}; do awk '{{print $1}}' $infile; done", iterable=True) ]
+		valList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 $infile | tail -1 | awk -F '\\t' '{{print $2+$3}}'; done", iterable=True) ]
+		dupList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 $infile | tail -1 | awk -F '\\t' '{{print $6+$7}}'; done", iterable=True) ]
+		finList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 $infile | tail -1 | awk -F '\\t' '{{print $NF}}'; done", iterable=True) ]
+		exoList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_UniqueGene' $infile | awk '{{print $2}}'; done", iterable=True) ]
+		intList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_NoGene_Intron' $infile | awk '{{print $2}}'; done", iterable=True) ]
+		splList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'SpliceEvents' $infile | awk '{{print $2}}'; done", iterable=True) ]
+		ambList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_AmbigGene' $infile | awk '{{print $2}}'; done", iterable=True) ]
+		nogList = [ string for string in shell("for infile in {input.qorts}; do grep 'ReadPairs_NoGene_' $infile | grep -v 'Intron' | awk '{{s+=$2}}END{{print s}}'; done", iterable=True) ]
 		DF = pd.DataFrame({"Total reads" : iniList, "Trimmed": triList, "Ribosomal" : ribList, "Uniquely mapped": uniList, "Multi-hits mapped" : mulList,
 						   "Library strand" : strList, "Valid": valList, "Duplicated" : dupList, "Usable reads": finList,
 						   "Exonic" : exoList, "Intronic": intList, "Spliced" : splList, "Ambiguous": ambList, "Intergenic" : nogList,}, index=idsList)
