@@ -88,10 +88,11 @@ rule trimgalore_SE:
 		outdir=RESULTS_PATH+"/trim_galore",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt",
+		log=RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt",
 	run:
 		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
 		rename_out(input["fastq"], ["_trimmed.fq.gz"], params["outdir"], output['fastq'])
+		rename_out(input["fastq"], [".fq.gz_trimming_report.txt"], RESULTS_PATH+"/logs/trim_galore", log['log'])
 
 rule trimgalore_PE:
 	input:
@@ -104,10 +105,11 @@ rule trimgalore_PE:
 		outdir=RESULTS_PATH+"/trim_galore",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/trim_galore/{sample}_PE.fq.gz_trimming_report.txt"
+		log=RESULTS_PATH+"/logs/trim_galore/{sample}_PE.fq.gz_trimming_report.txt"
 	run:
 		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
 		rename_out(input["fastq"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
+		rename_out(input["fastq"], [".fq.gz_trimming_report.txt"], RESULTS_PATH+"/logs/trim_galore", log['log'])
 
 rule index_rRNA_tRNA:
 	input:
