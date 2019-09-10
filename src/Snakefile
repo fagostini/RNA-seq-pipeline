@@ -716,7 +716,7 @@ rule metrics:
 		strList = [ string for string in shell("for infile in {input.strand}; do awk '{{print $1}}' $infile; done", iterable=True) ]
 		valList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $2+$3}}'; done", iterable=True) ]
 		dupList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $6+$7}}'; done", iterable=True) ]
-		finList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $NF}}'; done", iterable=True) ]
+		finList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print ($2+$3)-($6+$7)}}'; done", iterable=True) ]
 		exoList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_UniqueGene' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		intList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_NoGene_Intron' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		splList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'SpliceEvents' $infile | awk '{{print $2}}'; done", iterable=True) ]
