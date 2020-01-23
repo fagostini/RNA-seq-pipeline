@@ -82,6 +82,7 @@ rule trimgalore_SE:
 		# html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["SE"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
+		temp=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}.fq.gz", ext=["SE"])),
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["SE"]))
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
@@ -90,15 +91,22 @@ rule trimgalore_SE:
 	log:
 		log=RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt",
 	run:
-		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
-		rename_out(input["fastq"], ["_trimmed.fq.gz"], params["outdir"], output['fastq'])
-		rename_out(input["fastq"], [".fq.gz_trimming_report.txt"], RESULTS_PATH+"/logs/trim_galore", log['log'])
+		if config['barcode']:
+			barcode = config['barcode']
+			scriptfile=PATH+"/scripts/UMItoReadID.py"
+			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode}")
+			shell("trim_galore {params.basic} -o {params.outdir} {output.temp} &> {log}")
+		else:
+			shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
+			rename_out(input["fastq"], ["_trimmed.fq.gz"], params["outdir"], output['fastq'])
+			# rename_out(input["fastq"], [".fq.gz_trimming_report.txt"], RESULTS_PATH+"/logs/trim_galore", log['log'])
 
 rule trimgalore_PE:
 	input:
 		# html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
+		temp=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}.fq.gz", ext=["F", "R"])),
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]))
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file --paired --trim1",
@@ -107,9 +115,16 @@ rule trimgalore_PE:
 	log:
 		log=RESULTS_PATH+"/logs/trim_galore/{sample}_PE.fq.gz_trimming_report.txt"
 	run:
-		shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
-		rename_out(input["fastq"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
-		rename_out(input["fastq"], [".fq.gz_trimming_report.txt"], RESULTS_PATH+"/logs/trim_galore", log['log'])
+		if config['barcode']:
+			barcode = config['barcode']
+			scriptfile=PATH+"/scripts/UMItoReadID.py"
+			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode}")
+			shell("trim_galore {params.basic} -o {params.outdir} {output.temp} &> {log}")
+			rename_out(output["temp"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
+		else:
+			shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
+			rename_out(input["fastq"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
+			# rename_out(input["fastq"], [".fq.gz_trimming_report.txt"], RESULTS_PATH+"/logs/trim_galore", log['log'])
 
 rule index_rRNA_tRNA:
 	input:
@@ -255,7 +270,6 @@ def define_strand(counts, outfile):
 			of.write("SecondStrand")
 		else:
 			of.write("Unstranded")
-
 	return(0)
 
 rule map_star_SE:
@@ -293,12 +307,13 @@ rule map_star_SE:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
-			# shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
-	
 		elif config['seq_type'] == "NETseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
-			# shell("sambamba view -t {threads} -h {output.tmp} | awk -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
+		if config['barcode']:
+			barcode = config['barcode']
+			scriptfile=PATH+"/scripts/bamIDtoUMItag.py"
+			shell("python3 {scriptfile} -i {output.tmp} -b {barcode}")
 
 rule filter_unique_SE:
 	input:
@@ -313,7 +328,7 @@ rule filter_unique_SE:
 		6
 	run:
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
-		shell("sambamba view -t {threads} -h {input} 2> {log} | awk -f {scriptfile} 2>> {log} | sambamba view -t {threads} -S -f bam /dev/stdin 2>> {log} > {output}")
+		shell("samtools view --threads {threads} -h {input} 2> {log} | awk -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output}")
 
 rule remove_duplicates_SE:
 	input:
@@ -328,11 +343,12 @@ rule remove_duplicates_SE:
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
-	shell:
-		"""
-		java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}
-		java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}
-		"""
+	run:
+		if config['barcode']:
+			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
+		else:
+			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}")
+		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}")
 
 rule map_star_PE:
 	input:
@@ -370,28 +386,14 @@ rule map_star_PE:
 		if config['seq_type'] == "RNAseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.rna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
-			# with open(output["std"][0], "r") as infile:
-			# 	first_line = infile.readline()
-			# 	if first_line == "FirstStrand":
-			# 		strand = 1
-			# 	elif first_line == "SecondStrand":
-			# 		strand = 2
-			# 	else:
-			# 		strand = 0
-			# shell("sambamba view -t {threads} -h {output.tmp} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
 	
 		elif config['seq_type'] == "NETseq":
 			shell("STAR --runMode alignReads --runThreadN {threads} --genomeDir {params.genome} --readFilesIn {input.fastq} --outFileNamePrefix {prefix} {params.alignemnt} {params.dna} {params.output} 2>&1 > {log}")
 			define_strand(output["cnt"][0], output["std"][0])
-			# with open(output["std"][0], "r") as infile:
-			# 	first_line = infile.readline()
-			# 	if first_line == "FirstStrand":
-			# 		strand = 1
-			# 	elif first_line == "SecondStrand":
-			# 		strand = 2
-			# 	else:
-			# 		strand = 0
-			# shell("sambamba view -t {threads} -h {output.tmp} | awk -v strType={strand} -f scripts/tagXSstrandedData.awk | sambamba view -t {threads} -S -f bam /dev/stdin > {output.bam}")
+		if config['barcode']:
+			barcode = config['barcode']
+			scriptfile=PATH+"/scripts/bamIDtoUMItag.py"
+			shell("python3 {scriptfile} -i {output.tmp} -b {barcode}")
 
 rule filter_unique_PE:
 	input:
@@ -415,7 +417,7 @@ rule filter_unique_PE:
 			else:
 				strand = 0
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
-		shell("sambamba view -t {threads} -h {input.bam} 2> {log} | awk -v strType={strand} -f {scriptfile} 2>> {log} | sambamba view -t {threads} -S -f bam /dev/stdin 2>> {log} > {output}")
+		shell("samtools view --threads {threads} -h {input.bam} 2> {log} | awk -v strType={strand} -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output}")
 
 rule remove_duplicates_PE:
 	input:
@@ -430,11 +432,12 @@ rule remove_duplicates_PE:
 		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
 	log:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["PE"])
-	shell:
-		"""
-		java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}
-		java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}
-		"""
+	run:
+		if config['barcode']:
+			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
+		else:
+			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}")
+		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}")
 
 def create_bigWig(exe_path, stdfile, bamfile, chrmlen, bedlist, biglist, bedg, bigw, btparam):
 	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand + -ibam", bamfile, "| LC_COLLATE=C sort -k1,1 -k2,2n >", bedlist[0])))
