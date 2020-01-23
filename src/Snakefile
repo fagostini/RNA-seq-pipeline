@@ -319,7 +319,8 @@ rule filter_unique_SE:
 	input:
 		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])
 	output:
-		temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]))
+		bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"])),
+		bai=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]))
 	params:
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
 	log:
@@ -328,12 +329,14 @@ rule filter_unique_SE:
 		6
 	run:
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
-		shell("samtools view --threads {threads} -h {input} 2> {log} | awk -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output}")
+		shell("samtools view --threads {threads} -h {input} 2> {log} | awk -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output.bam}")
+		shell("samtools index {output.bam} 2>> {log}")
 
 rule remove_duplicates_SE:
 	input:
 		exe=PATH+"/executables/jar/picard.jar",
 		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		baifile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"])
 	output:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
 		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["SE"]),
@@ -345,7 +348,9 @@ rule remove_duplicates_SE:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
 	run:
 		if config['barcode']:
-			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
+			shell("umi_tools dedup -I {input.bamfile} -S {output.bamfile} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 --output-stats={output.metrics} > {log}")
+			shell("mv {output.metrics}_per_umi_per_position.tsv {output.metrics}")
+			# shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
 		else:
 			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}")
 		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}")
@@ -400,7 +405,8 @@ rule filter_unique_PE:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"])
 	output:
-		temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]))
+		bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"])),
+		bai=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]))
 	params:
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
 	log:
@@ -417,12 +423,14 @@ rule filter_unique_PE:
 			else:
 				strand = 0
 		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
-		shell("samtools view --threads {threads} -h {input.bam} 2> {log} | awk -v strType={strand} -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output}")
+		shell("samtools view --threads {threads} -h {input.bam} 2> {log} | awk -v strType={strand} -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output.bam}")
+		shell("samtools index {output.bam} 2>> {log}")
 
 rule remove_duplicates_PE:
 	input:
 		exe=PATH+"/executables/jar/picard.jar",
 		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+		baifile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"])
 	output:
 		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
 		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["PE"]),
@@ -434,7 +442,9 @@ rule remove_duplicates_PE:
 		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["PE"])
 	run:
 		if config['barcode']:
-			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
+			shell("umi_tools dedup -I {input.bamfile} -S {output.bamfile} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 --output-stats={output.metrics} --paired > {log}")
+			shell("mv {output.metrics}_per_umi_per_position.tsv {output.metrics}")
+			# shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
 		else:
 			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}")
 		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}")
@@ -717,9 +727,14 @@ rule metrics:
 		uniList = [ string for string in shell("for infile in {input.mapped}; do grep 'Uniquely mapped reads number' $infile | awk '{{print $NF}}'; done", iterable=True) ]
 		mulList = [ string for string in shell("for infile in {input.mapped}; do grep 'Number of reads mapped to too many loci' $infile | awk '{{print $NF}}'; done", iterable=True) ]
 		strList = [ string for string in shell("for infile in {input.strand}; do awk '{{print $1}}' $infile; done", iterable=True) ]
-		valList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $2+$3}}'; done", iterable=True) ]
-		dupList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $6+$7}}'; done", iterable=True) ]
-		finList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print ($2+$3)-($6+$7)}}'; done", iterable=True) ]
+		if config['barcode']:
+			valList = [ string for string in shell("for infile in {input.duplicated}; do grep -v 'counts' $infile | awk -F '\\t' '{{s+=$1*$2}}END{{print s}}'; done", iterable=True) ]
+			dupList = [ string for string in shell("for infile in {input.duplicated}; do grep -v 'counts' $infile | awk -F '\\t' '{{s+=$1*$2; d+=$3}}END{{print s-d}}'; done", iterable=True) ]
+			finList = [ string for string in shell("for infile in {input.duplicated}; do grep -v 'counts' $infile | awk -F '\\t' '{{s+=$3}}END{{print s}}'; done", iterable=True) ]
+		else:
+			valList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $2+$3}}'; done", iterable=True) ]
+			dupList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print $6+$7}}'; done", iterable=True) ]
+			finList = [ string for string in shell("for infile in {input.duplicated}; do grep -A 1 'ESTIMATED_LIBRARY_SIZE' $infile | tail -1 | awk -F '\\t' '{{print ($2+$3)-($6+$7)}}'; done", iterable=True) ]
 		exoList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_UniqueGene' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		intList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'ReadPairs_NoGene_Intron' $infile | awk '{{print $2}}'; done", iterable=True) ]
 		splList = [ string for string in shell("for infile in {input.qorts}; do grep -w 'SpliceEvents' $infile | awk '{{print $2}}'; done", iterable=True) ]
