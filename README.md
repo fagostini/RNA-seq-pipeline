@@ -1,13 +1,13 @@
 ## RNA-seq processing pipeline
 
-This repository contains a pipeline for the analysis of RNA-seq (and derived variants) data. 
+This repository contains the pipeline for the analysis of RNA-seq (and derived variants) data. 
 
 __Motivation__
 
-The aim was to create a standard RNA-seq pipeline that included quality controls, alignment and post-processing.
+The aim was to create a standard RNA-seq pipeline that included several steps for quality control, alignment to the reference genome and post-processing of the mapped reads.
 The pipeline has been developed using [Snakemake](http://snakemake.readthedocs.io/en/stable/), a tool to create reproducible and scalable data analyses.
 
-It was used by Federico for his `intergenic transcription` project, and then generalised to become a tool than could be applied to any set of RNA-seq experiments.
+It was initially developed by the author his postdoctoral project but, over the years, it was generalised to become a tool than could be easily applied to any kind of RNA-seq (GRO-seq, NET-seq, etc.) experiments.
 
 __Requirements__
 
@@ -21,7 +21,7 @@ __Requirements__
 
 ## Setup and run
 
-IMPORTANT: Before running the pipeline modify the `config.yaml` according to your needs, or create a new one. In case you do not need a splice-aware alignment, remember to specify either `NETseq` or `GROseq` as `seq_type` parameter.
+IMPORTANT: Before running the pipeline modify the `config.yaml` according to your needs, or create a new one. In case you do not need a splice-aware alignment, remember to specify either `NETseq` or `GROseq` as `seq_type` parameter in the `config.yaml` file.
 
 You can run the standard workflow using:
 
@@ -29,10 +29,10 @@ You can run the standard workflow using:
 snakemake --configfile=<your config file>
 ```
 
-or you can run a shorter version, which does not perform the transcriptome assembly, with:
+or you can run a longer version, which in addition to the standard routines, performes per-sample transcriptome assembly:
 
 ```
-snakemake --configfile=<your config file> map
+snakemake --configfile=<your config file> all
 ```
 
 ### Workflow
@@ -56,7 +56,7 @@ Figure 1: Schematic of the pipeline workflow.
 * Generation of coverage tracks (Custom scripts and ENCODE binaries)
 * Removal of PCR duplicates (Picard)
 * Calculation of gene counts (QoRTs)
-* Transcriptome assembly (StringTie)
+* Transcriptome assembly (StringTie) [optional]
 
 #### Steps description
 
@@ -91,7 +91,7 @@ The MarkDuplicates tool works by comparing sequences in the 5 prime positions of
 
 The QoRTs software package is a fast, efficient, and portable multifunction toolkit designed to assist in the analysis, quality control, and data management of RNA-Seq and DNA-Seq datasets. Its primary function is to aid in the detection and identification of errors, biases, and artifacts produced by high-throughput sequencing technology. In addition, it can produce count data designed for use with RNA-Seq differential gene expression and differential exon usage tools.
 
-##### [StringTie](https://ccb.jhu.edu/software/stringtie)
+##### [StringTie](https://ccb.jhu.edu/software/stringtie) [optional]
 
 StringTie is a fast and highly efficient assembler of RNA-Seq alignments into potential transcripts. It uses a novel network flow algorithm as well as an optional de novo assembly step to assemble and quantitate full-length transcripts representing multiple splice variants for each gene locus.
 
@@ -99,7 +99,15 @@ _NB: Presently, the algorithm performs the assembly only on samples that contain
 
 ---
 
-### To-Do list
+## Bugs and Issues
 
-  - NET/GRO-seq branch (useful for techniques where splicing is not accounted for);
-  - Dynamic retrieval of genome and annotation.
+Report bugs as issues on the [GitHub repository](https://github.com/fagostini/RNA-seq-pipeline/issues)
+
+<!-- ## Author
+
+* [Federico Agostini](https://github.com/fagostini) -->
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+
