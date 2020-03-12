@@ -89,12 +89,12 @@ rule trimgalore_SE:
 		outdir=RESULTS_PATH+"/trim_galore",
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
-		log=RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt",
+		log=RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt"
 	run:
 		if config['barcode']:
 			barcode = config['barcode']
 			scriptfile=PATH+"/scripts/UMItoReadID.py"
-			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode}")
+			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode} -v &> {log}")
 			shell("trim_galore {params.basic} -o {params.outdir} {output.temp} &> {log}")
 		else:
 			shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
@@ -118,8 +118,8 @@ rule trimgalore_PE:
 		if config['barcode']:
 			barcode = config['barcode']
 			scriptfile=PATH+"/scripts/UMItoReadID.py"
-			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode}")
-			shell("trim_galore {params.basic} -o {params.outdir} {output.temp} &> {log}")
+			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode} -v &> {log}")
+			shell("trim_galore {params.basic} -o {params.outdir} {output.temp} &>> {log}")
 			rename_out(output["temp"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
 		else:
 			shell("trim_galore {params.basic} -o {params.outdir} {input.fastq} &> {log}")
@@ -313,7 +313,7 @@ rule map_star_SE:
 		if config['barcode']:
 			barcode = config['barcode']
 			scriptfile=PATH+"/scripts/bamIDtoUMItag.py"
-			shell("python3 {scriptfile} -i {output.tmp} -b {barcode}")
+			shell("python3 {scriptfile} -i {output.tmp} -b {barcode} 2>&1 >> {log}")
 
 rule filter_unique_SE:
 	input:
@@ -398,7 +398,7 @@ rule map_star_PE:
 		if config['barcode']:
 			barcode = config['barcode']
 			scriptfile=PATH+"/scripts/bamIDtoUMItag.py"
-			shell("python3 {scriptfile} -i {output.tmp} -b {barcode}")
+			shell("python3 {scriptfile} -i {output.tmp} -b {barcode} 2>&1 >> {log}")
 
 rule filter_unique_PE:
 	input:
