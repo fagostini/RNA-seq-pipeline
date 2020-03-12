@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import pysam
 import tempfile
 import regex
@@ -14,19 +15,25 @@ def barcode_to_tag(input_file, barcode, verbose):
 	umi_length = len(regex.findall('U', barcode))
 	barcode_pattern = '('
 	if barcode_length > 0:
-		barcode_pattern += '.BC:Z:[A-Z]{' + str(barcode_length) + '}'
+		barcode_pattern += '(.?)BC:Z:[A-Z]{' + str(barcode_length) + '}'
 	if umi_length > 0:
-		barcode_pattern += '.RX:Z:[A-Z]{' + str(umi_length) + '}'
+		barcode_pattern += '(.?)RX:Z:[A-Z]{' + str(umi_length) + '}'
 	barcode_pattern += ')'
 
 	total = 0
 	wrote = 0
-	with tempfile.TemporaryFile() as tmp:
+	dirname, basename = os.path.split(input_file)
+	with tempfile.TemporaryFile(prefix=basename, dir=dirname) as tmp:
 		with pysam.AlignmentFile(input_file, "rb") as infile:
 			for read in infile:
 				name_list = regex.split(barcode_pattern, read.query_name)
+				if name_list[0] == '':
+					name_list[2] = name_list[2].replace('.', '', 1)
+				tags = regex.match(barcode_pattern, read.query_name).group().replace('.', '', 1)
 				read.query_name = ''.join([name_list[0], name_list[2]])
-				tags = tuple(name_list[1].replace('.', ':Z:').split(':Z:'))[1:]
+				# tags = tuple(name_list[1].replace('.', ':Z:').split(':Z:'))[1:]
+				# read.tags = read.tags + [ tags[x:x + 2] for x in range(0, len(tags), 2) ]
+				tags = tuple(tags.replace('.', ':Z:').split(':Z:'))
 				read.tags = read.tags + [ tags[x:x + 2] for x in range(0, len(tags), 2) ]
 				tmp.write((pysam.AlignedSegment.to_string(read)+'\n').encode('utf8'))
 				total += 1

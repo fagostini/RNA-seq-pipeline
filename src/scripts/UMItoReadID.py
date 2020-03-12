@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import gzip
 import regex
@@ -16,7 +17,11 @@ def move_barcode(input_file, output_file, skip5, barcode, verbose):
 	barcode_list = [ i.start() for i in regex.finditer('B', barcode) ]
 	umi_list = [ i.start() for i in regex.finditer('U', barcode) ]
 
-	with tempfile.TemporaryFile() as tmp:
+	if verbose:
+		print("Reading and processing file 1...")
+
+	dirname, basename = os.path.split(output_file[0])
+	with tempfile.TemporaryFile(prefix=basename, dir=dirname) as tmp:
 		with gzip.open(input_file[0], "rt") as in_handle:
 			for title, seq, qual in FastqGeneralIterator(in_handle):
 				seq = seq[skip5:]
@@ -39,7 +44,11 @@ def move_barcode(input_file, output_file, skip5, barcode, verbose):
 
 	if len(input_file) > 1:
 		wrote_2 = 0
-		with tempfile.TemporaryFile() as tmp:
+		if verbose:
+			print("Reading and processing file 2...")
+
+		dirname, basename = os.path.split(output_file[1])
+		with tempfile.TemporaryFile(prefix=basename, dir=dirname) as tmp:
 			with gzip.open(output_file[0], "rt") as handle_1:
 				with gzip.open(input_file[1], "rt") as handle_2:
 					while True:
