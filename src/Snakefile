@@ -319,8 +319,8 @@ rule filter_unique_SE:
 	input:
 		expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"])
 	output:
-		bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"])),
-		bai=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]))
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"])
 	params:
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
 	log:
@@ -405,8 +405,8 @@ rule filter_unique_PE:
 		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"]),
 		std=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.StrandCheck.out.tab", ext=["PE"])
 	output:
-		bam=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"])),
-		bai=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"]))
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["PE"]),
+		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["PE"])
 	params:
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
 	log:
