@@ -7,7 +7,7 @@ import regex
 from Bio import bgzf
 import argparse
 
-def barcode_to_tag(input_file, barcode, verbose):
+def barcode_to_tag(input_file, output_file, barcode, verbose):
 	samfile = pysam.AlignmentFile(input_file, "rb")
 	header = str(samfile.header)
 
@@ -38,7 +38,7 @@ def barcode_to_tag(input_file, barcode, verbose):
 				tmp.write((pysam.AlignedSegment.to_string(read)+'\n').encode('utf8'))
 				total += 1
 		tmp.seek(0)
-		with bgzf.BgzfWriter(input_file, "wb") as outfile:
+		with bgzf.BgzfWriter(output_file, "wb") as outfile:
 			outfile.write(header.encode('utf8'))
 			for read in tmp:
 				outfile.write(read)
@@ -55,13 +55,18 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description="Generate the preseq input histogram", prefix_chars="-")
 	parser.add_argument("-i", "--input", type=str, dest='infile', nargs=1, help="the input BAM file (not filtered by mapq)", required=True)
+	parser.add_argument("-o", "--output", type=str, dest='outfile', nargs=1, help="the output BAM file")
 	parser.add_argument("-b", "--barcode", type=str, dest='barcode', nargs=1, help="the pattern of 'B' and 'U' characters identifying the barcode and/or UMI positions (e.g., BBBUUUBB)", required=True)
 	parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true", default=False)
 	args = parser.parse_args()
 
 	input_file = args.infile[0]
+	if( args.outfile ):
+		output_file = args.outfile[0]
+	else:
+		output_file = input_file[0]
 	barcode = args.barcode[0]
 	verbose = args.verbose
 
-	barcode_to_tag(input_file, barcode, verbose)
+	barcode_to_tag(input_file, output_file, barcode, verbose)
 

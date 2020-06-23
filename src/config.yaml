@@ -1,19 +1,23 @@
 # Define pipeline paths
 global:
-  snakemake: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src
-  results: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/results
+  snakemake: /path/to/RNA-seq-pipeline/src
+  results: /path/to/RNA-seq-pipeline/results
+  remove_duplicates: "true" # Either 'true' or 'false'
+
+# Define barcode (B) and UMI (U) pattern at the 5'-end of the read
+barcode: "UUUBBBBBUUU" # Either a string of 'B's and 'U's or 'false'
 
 # Define mapping and annotation paths
 genome:
-  path: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src/genome
-  name: GRCh38.primary_assembly.genome.fa.gz
+  path: /path/to/genome # Folder containing the genome file
+  name: GRCh38.primary_assembly.genome.fa.gz # Folder containing the genome file
 annotation:
-  path: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src/annotation
+  path: /path/to/annotation # Folder containing the genome file
   name: gencode.v27.annotation.gtf.gz
 alignment:
   path: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src/genome
-  ribo: human_rRNA_tRNA/rRNA_tRNA
-  star: STAR_GRCh38_v27
+  ribo: human_rRNA_tRNA/rRNA_tRNA  # Folder containing the genome file
+  star: STAR_GRCh38_v27 # Folder containing the genome file
 
 # Define samples
 samples:
