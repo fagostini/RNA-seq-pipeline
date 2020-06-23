@@ -1,7 +1,4 @@
-**/.DS_Store
-src/.snakemake/*
-results
+**.DS_Store
 annotation
 genome
-logs/*.log
-.snakemake/*
+**.snakemake
