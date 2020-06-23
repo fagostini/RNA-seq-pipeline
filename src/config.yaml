@@ -1,28 +1,28 @@
 # Define pipeline paths
 global:
-  snakemake: /path/to/RNA-seq-pipeline/src
-  results: /path/to/RNA-seq-pipeline/results
-  remove_duplicates: "true" # Either 'true' or 'false'
+  snakemake: /path/to/RNA-seq-pipeline/src # Folder containing Snakemake file, executables and scripts folders
+  results: /path/to/RNA-seq-pipeline/results # Folder where the outputs will be placed
+  remove_duplicates: true # Either 'true' or 'false'
 
 # Define barcode (B) and UMI (U) pattern at the 5'-end of the read
-barcode: "UUUBBBBBUUU" # Either a string of 'B's and 'U's or 'false'
+barcode: "UUUBBBBBUUU" # Either a string of 'B's and/or 'U's or 'false'
 
 # Define mapping and annotation paths
 genome:
   path: /path/to/genome # Folder containing the genome file
-  name: GRCh38.primary_assembly.genome.fa.gz # Folder containing the genome file
+  name: GRCh38.primary_assembly.genome.fa.gz # FASTA file (can be gzipped)
 annotation:
-  path: /path/to/annotation # Folder containing the genome file
-  name: gencode.v27.annotation.gtf.gz
+  path: /path/to/annotation # Folder containing the annotation file
+  name: gencode.v27.annotation.gtf.gz # GTF or GFF3 file (can be gzipped)
 alignment:
-  path: /Users/agostif/Documents/GitHub/RNA-seq-pipeline/src/genome
-  ribo: human_rRNA_tRNA/rRNA_tRNA  # Folder containing the genome file
-  star: STAR_GRCh38_v27 # Folder containing the genome file
+  path: /path/to/genome # Folder containing the index files
+  ribo: human_rRNA_tRNA/rRNA_tRNA # Bowtie2 index basename or FASTA file (can be gzipped; the index will be created)
+  star: STAR_GRCh38_v27 # Folder containing the STAR index (it will be created)
 
-# Define samples
+# Define samples (multiple experiments and library types can be specified in the same config file)
 samples:
-  Single-end_sample: ["/Users/agostif/Documents/GitHub/RNA-seq-pipeline/data/single.fastq.gz"] # Single-end sample
-  Paired-end_sample: ["/Users/agostif/Documents/GitHub/RNA-seq-pipeline/data/paired_1.fastq.gz", "/Users/agostif/Documents/GitHub/RNA-seq-pipeline/data/paired_2.fastq.gz"] # Paired-end sample
+  Single-end_sample: ["/path/to/RNA-seq-pipeline/data/single.fastq.gz"] # Example of single-end experiment
+  Paired-end_sample: ["/path/to/RNA-seq-pipeline/data/paired_1.fastq.gz", "/path/to/RNA-seq-pipeline/data/paired_2.fastq.gz"] # Example of paired-end experiment
 
 # Define sequencing type
-seq_type: "RNAseq" # or NETseq or GROseq (not implemented yet)
+seq_type: "RNAseq" # RNAseq or NETseq (NETseq will not allow spliced reads alignment)
