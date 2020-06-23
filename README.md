@@ -17,7 +17,11 @@ __Requirements__
 * [_Trim Galore!_](https://www.bioinformatics.babraham.ac.uk/projects/trim_galore/) (and its dependency [_Cutadapt_](https://cutadapt.readthedocs.io/en/stable/)) 
 * [_Bowtie2_](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
 * [_STAR_](https://github.com/alexdobin/STAR)
-* [_StringTie_](https://ccb.jhu.edu/software/stringtie)
+
+Optional:
+* [_StringTie_](https://ccb.jhu.edu/software/stringtie) (required for transcriptome assembly)
+* [_UMI-tools_]((https://github.com/CGATOxford/UMI-tools)) (required for deduplication using UMIs)
+* [_deepTools_](https://deeptools.readthedocs.io) (required for generation of bigWig tracks)
 
 ## Setup and usage
 
@@ -25,22 +29,20 @@ IMPORTANT: Before running the pipeline modify the `config.yaml` according to you
 
 __Barcodes and UMIs__
 
-NEW: You can now specify the `barcode` parameter in the `config.yaml` (python modules required: `regex` and `umi_tools`). This enables a routine that pre-processes the reads to extract the barcode and/or UMI sequences and carries them over up to
-the PCR duplicates removal performed by UMI-tools. Please note that, in order to keep this information after the mapping step, the read names are modified and some parts might get lost, though this does not apply to the paired-end mate identifiers.
-Moreover, barcode and UMI sequences are stored in the alignment file within the BC and RX tags, respectively. Although the RX tag is currently set to be used during the PCR duplicates removal, the BC tag is not.
+**NEW:** You can now specify the `barcode` parameter in the `config.yaml` (python modules required: `regex` and `umi_tools`). This enables a routine that pre-processes the reads to extract the barcode and/or UMI sequences and carries them over up to the PCR duplicates removal performed by UMI-tools. Please note that, in order to keep this information after the mapping step, the read names are modified and some parts might get lost, though this does not apply to the paired-end mate identifiers. Moreover, barcode and UMI sequences are stored in the alignment file within the BC and RX tags, respectively. Although the RX tag is currently set to be used during the PCR duplicates removal, the BC tag is not.
 
 __Run the pipeline__
 
-You can run the standard workflow using:
+You can run the standard workflow (mapping and quantification) using:
 
 ```
 snakemake --configfile=<your config file>
 ```
 
-or you can run a shorter version, which does not perform the transcriptome assembly, with:
+or you can run the longer version (with trancks and transcriptome assembly) with:
 
 ```
-snakemake --configfile=<your config file> map
+snakemake --configfile=<your config file> -R all
 ```
 
 ### Workflow

@@ -34,10 +34,10 @@ rule all:
 		RESULTS_PATH+"/sampleMetrics.tsv",
 		RESULTS_PATH+"/sampleTableLong.tsv"
 
-def rename_out(inlist, suffix, outdir, outlist):
-	for i in range(len(inlist)):
-		base_out = "/".join((outdir, os.path.basename(inlist[i])))
-		temp_out = "".join((base_out.partition(".")[0], suffix[0] if len(suffix)==1 else suffix[i]))
+def rename_out(inlist, suffixList, outdir, outlist):
+	for i in range(len(suffixList)):
+		base_out = "/".join((outdir, os.path.basename(inlist[0])))
+		temp_out = "".join((base_out.partition(".")[0], suffixList[i]))
 		print(" ".join(("mv", temp_out, outlist[i])))
 		os.system(" ".join(("mv", temp_out, outlist[i])))
 
@@ -82,22 +82,23 @@ rule trimgalore_SE:
 		# html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["SE"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
-		temp=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}.fq.gz", ext=["SE"])),
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["SE"]))
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file",
 		outdir=RESULTS_PATH+"/trim_galore",
+		temp=expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}.fq.gz", ext=["SE"]),
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
-		log=RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt"
+		RESULTS_PATH+"/logs/trim_galore/{sample}_SE.fq.gz_trimming_report.txt"
 	threads:
 		2
 	run:
 		if config['barcode']:
 			barcode = config['barcode']
 			scriptfile=PATH+"/scripts/UMItoReadID.py"
-			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode} -v &> {log}")
-			shell("trim_galore {params.basic} --cores {threads} -o {params.outdir} {output.temp} &> {log}")
+			shell("python3 {scriptfile} -i {input.fastq} -o {params.temp} -b {barcode} -v &> {log}")
+			shell("trim_galore {params.basic} --cores {threads} -o {params.outdir} {params.temp} &>> {log}")
+			shell("rm {params.temp}")
 		else:
 			shell("trim_galore {params.basic} --cores {threads} -o {params.outdir} {input.fastq} &> {log}")
 			rename_out(input["fastq"], ["_trimmed.fq.gz"], params["outdir"], output['fastq'])
@@ -108,39 +109,51 @@ rule trimgalore_PE:
 		# html=expand(RESULTS_PATH+"/fastqc-pre/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
 		fastq=lambda wildcards: config["samples"][wildcards.sample]
 	output:
-		temp=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}.fq.gz", ext=["F", "R"])),
 		fastq=temp(expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}_trimmed.fq.gz", ext=["F", "R"]))
 	params:
 		basic="-q 20 --gzip --length 16 --no_report_file --paired --trim1",
 		outdir=RESULTS_PATH+"/trim_galore",
+		temp=expand(RESULTS_PATH+"/trim_galore/{{sample}}_{ext}.fq.gz", ext=["F", "R"]),
 		cluster='-N 1 -c 1 --mem=16G -t 160:00:00 -o logs/trimgalore.%A.{sample}.log'
 	log:
-		log=RESULTS_PATH+"/logs/trim_galore/{sample}_PE.fq.gz_trimming_report.txt"
+		RESULTS_PATH+"/logs/trim_galore/{sample}_PE.fq.gz_trimming_report.txt"
 	threads:
 		2
 	run:
 		if config['barcode']:
 			barcode = config['barcode']
 			scriptfile=PATH+"/scripts/UMItoReadID.py"
-			shell("python3 {scriptfile} -i {input.fastq} -o {output.temp} -b {barcode} -v &> {log}")
-			shell("trim_galore {params.basic} --cores {threads} -o {params.outdir} {output.temp} &>> {log}")
+			shell("python3 {scriptfile} -i {input.fastq} -o {params.temp} -b {barcode} -v &> {log}")
+			shell("trim_galore {params.basic} --cores {threads} -o {params.outdir} {params.temp} &>> {log}")
 			rename_out(output["temp"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
+			shell("rm {params.temp}")
 		else:
 			shell("trim_galore {params.basic} --cores {threads} -o {params.outdir} {input.fastq} &> {log}")
 			rename_out(input["fastq"], ["_val_1.fq.gz", "_val_2.fq.gz"], params["outdir"], output['fastq'])
 			# rename_out(input["fastq"], [".fq.gz_trimming_report.txt"], RESULTS_PATH+"/logs/trim_galore", log['log'])
 
+rule gunzip_rRNA_tRNA:
+	input:
+		RIBO_INDEX_PATH
+	output:
+		temp(os.path.splitext(RIBO_INDEX_PATH)[0])
+	params:
+		cluster='-N 1 -c 1 --mem=8G -t 160:00:00 -o logs/gunzip_genome.%A.log'
+	shell:
+		"""
+		gunzip -c {input} > {output}
+		"""
+
 rule index_rRNA_tRNA:
 	input:
-		RIBO_INDEX_PATH+".fa.gz"
+		os.path.splitext(RIBO_INDEX_PATH)[0] if os.path.splitext(RIBO_INDEX_PATH)[1] == ".gz" else RIBO_INDEX_PATH
 	output:
-		expand(RIBO_INDEX_PATH+".{count}.bt2", count=['1', '2', '3', '4']),
-		expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
+		expand(RIBO_INDEX_PATH+".{ext}.bt2", ext=['1', '2', '3', '4', 'rev.1', 'rev.2'])
 	params:
 		basename=RIBO_INDEX_PATH,
 		cluster='-N 1 -c 8 --mem=30G -t 160:00:00 -o logs/index_rRNA_tRNA.%A.log'
 	log:
-		"logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
+		RESULTS_PATH+"/logs/index_rRNA_tRNA/index_rRNA_tRNA.log"
 	threads:
 		8
 	shell:
@@ -153,17 +166,18 @@ rule remove_rRNA_tRNA_SE:
 		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["SE"])),
-		tmp=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{tmp}.gz", tmp=["temp"]))
+		tmp=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{tmp}.gz", tmp=["temp"])),
+		metrics=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}_SE_rRNA_tRNA_removed.txt"
 	params:
 		basic="--sensitive-local",
 		basename=RIBO_INDEX_PATH,
 		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_SE_rRNA_tRNA_removed.log"
+		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_SE_stderr.log"
 	threads:
 		8
 	run:
-		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x {params.basename} -U {input.fastq} 2> {log} | gzip -c > {output.tmp}")
+		shell("bowtie2 {params.basic} --threads {threads} --un-gz {output.fastq} -x {params.basename} -U {input.fastq} 2> {output.metrics} | gzip -c > {output.tmp} 2> {log}")
 
 rule remove_rRNA_tRNA_PE:
 	input:
@@ -172,7 +186,8 @@ rule remove_rRNA_tRNA_PE:
 		index2=expand(RIBO_INDEX_PATH+".rev.{count}.bt2", count=['1', '2'])
 	output:
 		fastq=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{ext}_rRNA_tRNA_removed.fq.gz", ext=["F", "R"])),
-		tmp=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{tmp}.gz", tmp=["temp"]))
+		tmp=temp(expand(RESULTS_PATH+"/rRNA_tRNA_removed/{{sample}}_{tmp}.gz", tmp=["temp"])),
+		metrics=RESULTS_PATH+"/rRNA_tRNA_removed/{sample}_PE_rRNA_tRNA_removed.txt"
 	params:
 		basic="--sensitive-local",
 		basename=RIBO_INDEX_PATH,
@@ -180,13 +195,13 @@ rule remove_rRNA_tRNA_PE:
 		outdir=RESULTS_PATH+"/rRNA_tRNA_removed",
 		cluster='-N 1 -c 8 --mem=48G -t 160:00:00 -o logs/remove_rRNA_tRNA.%A.{sample}.log'
 	log:
-		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_PE_rRNA_tRNA_removed.log"
+		RESULTS_PATH+"/logs/rRNA_tRNA_removed/{sample}_PE_stderr.log"
 	threads:
 		8
 	run:
 		fq1 = input["fastq"][0] 
 		fq2 = input["fastq"][1] 
-		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} -x {params.basename} -1 {fq1} -2 {fq2} 2> {log} | gzip -c > {output.tmp}")
+		shell("bowtie2 {params.basic} -p {threads} --un-conc-gz {params.outname} -x {params.basename} -1 {fq1} -2 {fq2} 2> {output.metrics} | gzip -c > {output.tmp} 2> {log}")
 		inputList = [params["outname"].replace(".fq.gz", s) for s in [".fq.1.gz", ".fq.2.gz"]]
 		# shell("python {}/scripts/pair_fastq_fast.py -l {} -r {}".format(PATH, *inputList))
 		rename_out(inputList, [".fq.1.gz", ".fq.2.gz"], params["outdir"], output['fastq'])
@@ -320,70 +335,6 @@ rule map_star_SE:
 			scriptfile=PATH+"/scripts/bamIDtoUMItag.py"
 			shell("python3 {scriptfile} -i {output.tmp} -b {barcode} 2>&1 >> {log}")
 
-rule filter_unique_SE:
-	input:
-		all = expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
-		txs = expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.out.bam", ext=["SE"])
-	output:
-		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
-		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
-		tmp=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.tmp", ext=["SE"])),
-		bam2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam", ext=["SE"]),
-		baifile2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam.bai", ext=["SE"])
-	params:
-		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
-	log:
-		expand(RESULTS_PATH+"/logs/filter_unique/{{sample}}_{ext}.txt", ext=["SE"])
-	threads:
-		4
-	run:
-		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
-		shell("samtools view --threads {threads} -h {input.all} 2> {log} | awk -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output.bam}")
-		shell("samtools index {output.bam} 2>> {log}")
-		shell("samtools view --threads {threads} -h {input.txs} 2>> {log} | awk -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output.tmp}")
-		shell("samtools sort --threads {threads} --output-fmt BAM -o {output.bam2} {output.tmp} 2>> {log}")
-		shell("samtools index {output.bam2} 2>> {log}")
-
-rule remove_duplicates_SE:
-	input:
-		exe=PATH+"/executables/jar/picard.jar",
-		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
-		baifile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
-		bamfile2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam", ext=["SE"]),
-		baifile2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam.bai", ext=["SE"])
-	output:
-		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
-		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["SE"]),
-		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
-		bamfile2=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.toTranscriptome.bam", ext=["SE"]),
-		metrics2=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.toTranscriptome.txt", ext=["SE"]),
-		index2=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.toTranscriptome.bam.bai", ext=["SE"])
-	params:
-		basic="REMOVE_DUPLICATES={} ASSUME_SORT_ORDER=coordinate".format(config['global']['remove_duplicates']),
-		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
-	log:
-		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
-	threads:
-		8
-	run:
-		if config['barcode']:
-			shell("echo -e 'counts\tinstances_pre\tinstances_post' > {output.metrics}")
-			shell("""samtools flagstat -@ {threads} {input.bamfile} | grep -m 1 "mapped" | awk '{{printf "1\\t%d\\t", $1}}' >> {output.metrics}""")
-			shell("umi_tools dedup -I {input.bamfile} -S {output.bamfile} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 > {log}")
-			shell("""samtools flagstat -@ {threads} {output.bamfile} | grep -m 1 "mapped" | awk '{{printf "%d\\n", $1}}' >> {output.metrics}""")
-			# shell("mv {output.metrics}_per_umi_per_position.tsv {output.metrics}")
-			# shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
-			shell("echo -e 'counts\tinstances_pre\tinstances_post' > {output.metrics2}")
-			shell("""samtools flagstat -@ {threads} {input.bamfile2} | grep -m 1 "mapped" | awk '{{printf "1\\t%d\\t", $1}}' >> {output.metrics2}""")
-			shell("umi_tools dedup -I {input.bamfile2} -S {output.bamfile2} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 >> {log}")
-			shell("""samtools flagstat -@ {threads} {output.bamfile2} | grep -m 1 "mapped" | awk '{{printf "%d\\n", $1}}' >> {output.metrics2}""")
-			# shell("mv {output.metrics2}_per_umi_per_position.tsv {output.metrics2}")
-		else:
-			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} > {log}")
-			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile2} O={output.bamfile2} M={output.metrics2} {params.basic} >> {log}")
-		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index}")
-		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile2} O={output.index2}")
-
 rule map_star_PE:
 	input:
 		# html=expand(RESULTS_PATH+"/fastqc-post/{{sample}}_{ext}_fastqc.html", ext=["F", "R"]),
@@ -448,18 +399,42 @@ rule fix_barcode_PE:
 		shell("python3 {params.scriptfile} -i {input.bam1} -o {output.bam1} -b {params.barcode} 2>&1 >> {log}")
 		shell("python3 {params.scriptfile} -i {input.bam2} -o {output.bam2} -b {params.barcode} 2>&1 >> {log}")
 
+rule filter_unique_SE:
+	input:
+		all = expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["SE"]),
+		txs = expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.out.bam", ext=["SE"])
+	output:
+		bam=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		bai=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
+		tmp=temp(expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.tmp", ext=["SE"])),
+		bam2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam", ext=["SE"]),
+		baifile2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam.bai", ext=["SE"])
+	params:
+		cluster='-N 1 -c 8 --mem=32G -t 160:00:00 -o logs/filter_unique.%A.{sample}.log'
+	log:
+		expand(RESULTS_PATH+"/logs/filter_unique/{{sample}}_{ext}.txt", ext=["SE"])
+	threads:
+		4
+	run:
+		scriptfile=PATH+"/scripts/tagXSstrandedData.awk"
+		shell("samtools view --threads {threads} -h {input.all} 2> {log} | awk -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output.bam}")
+		shell("samtools index {output.bam} 2>> {log}")
+		shell("samtools view --threads {threads} -h {input.txs} 2>> {log} | awk -f {scriptfile} 2>> {log} | samtools view --threads {threads} -b /dev/stdin 2>> {log} > {output.tmp}")
+		shell("samtools sort --threads {threads} --output-fmt BAM -o {output.bam2} {output.tmp} 2>> {log}")
+		shell("samtools index {output.bam2} 2>> {log}")
+
 # input function for the rule aggregate
 def aggregate_input_all(wildcards):
-        if config['barcode']:
-            return expand(RESULTS_PATH+"/barcode_fixed/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])
-        else:
-            return expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])
+	if config['barcode']:
+		return expand(RESULTS_PATH+"/barcode_fixed/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])
+	else:
+		return expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.out.bam", ext=["PE"])
 
 def aggregate_input_txs(wildcards):
-        if config['barcode']:
-            return expand(RESULTS_PATH+"/barcode_fixed/{{sample}}_{ext}.Aligned.toTranscriptome.out.bam", ext=["PE"])
-        else:
-            return expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.out.bam", ext=["PE"])
+	if config['barcode']:
+		return expand(RESULTS_PATH+"/barcode_fixed/{{sample}}_{ext}.Aligned.toTranscriptome.out.bam", ext=["PE"])
+	else:
+		return expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.out.bam", ext=["PE"])
 
 rule filter_unique_PE:
 	input:
@@ -515,6 +490,46 @@ rule filter_unique_txs_PE:
 		shell("samtools sort --threads {threads} --output-fmt BAM -o {output.bam2} {output.tmp} 2>> {log}")
 		shell("samtools index {output.bam2} 2>> {log}")
 
+rule remove_duplicates_SE:
+	input:
+		exe=PATH+"/executables/jar/picard.jar",
+		bamfile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		baifile=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
+		bamfile2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam", ext=["SE"]),
+		baifile2=expand(RESULTS_PATH+"/mapped/{{sample}}_{ext}.Aligned.toTranscriptome.bam.bai", ext=["SE"])
+	output:
+		bamfile=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam", ext=["SE"]),
+		metrics=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.txt", ext=["SE"]),
+		index=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.sortedByCoord.bam.bai", ext=["SE"]),
+		bamfile2=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.toTranscriptome.bam", ext=["SE"]),
+		metrics2=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.toTranscriptome.txt", ext=["SE"]),
+		index2=expand(RESULTS_PATH+"/picarded/{{sample}}_{ext}.Aligned.toTranscriptome.bam.bai", ext=["SE"])
+	params:
+		basic="REMOVE_DUPLICATES={} ASSUME_SORT_ORDER=coordinate".format(config['global']['remove_duplicates']),
+		cluster='-N 1 -c 1 --mem=32G -t 160:00:00 -o logs/duplicates.%A.{sample}.log'
+	log:
+		expand(RESULTS_PATH+"/logs/remove_duplicates/{{sample}}_{ext}.txt", ext=["SE"])
+	threads:
+		8
+	run:
+		if config['barcode']:
+			shell("echo -e 'counts\tinstances_pre\tinstances_post' > {output.metrics}")
+			shell("""samtools flagstat -@ {threads} {input.bamfile} | grep -m 1 "mapped" | awk '{{printf "1\\t%d\\t", $1}}' >> {output.metrics}""")
+			shell("umi_tools dedup -I {input.bamfile} -S {output.bamfile} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 &> {log}")
+			shell("""samtools flagstat -@ {threads} {output.bamfile} | grep -m 1 "mapped" | awk '{{printf "%d\\n", $1}}' >> {output.metrics}""")
+			# shell("mv {output.metrics}_per_umi_per_position.tsv {output.metrics}")
+			# shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} BARCODE_TAG='RX' > {log}")
+			shell("echo -e 'counts\tinstances_pre\tinstances_post' > {output.metrics2}")
+			shell("""samtools flagstat -@ {threads} {input.bamfile2} | grep -m 1 "mapped" | awk '{{printf "1\\t%d\\t", $1}}' >> {output.metrics2}""")
+			shell("umi_tools dedup -I {input.bamfile2} -S {output.bamfile2} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 &>> {log}")
+			shell("""samtools flagstat -@ {threads} {output.bamfile2} | grep -m 1 "mapped" | awk '{{printf "%d\\n", $1}}' >> {output.metrics2}""")
+			# shell("mv {output.metrics2}_per_umi_per_position.tsv {output.metrics2}")
+		else:
+			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile} O={output.bamfile} M={output.metrics} {params.basic} &> {log}")
+			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile2} O={output.bamfile2} M={output.metrics2} {params.basic} &>> {log}")
+		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile} O={output.index} &>> {log}")
+		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile2} O={output.index2} &>> {log}")
+
 rule remove_duplicates_PE:
 	input:
 		exe=PATH+"/executables/jar/picard.jar",
@@ -563,13 +578,13 @@ rule remove_duplicates_txs_PE:
 		if config['barcode']:
 			shell("echo -e 'counts\tinstances_pre\tinstances_post' > {output.metrics2}")
 			shell("""samtools flagstat -@ {threads} {input.bamfile2} | grep "properly paired" | awk '{{printf "1\\t%d\\t", $1}}' >> {output.metrics2}""")
-			shell("umi_tools dedup -I {input.bamfile2} -S {output.tmpfile2} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 --paired >> {log}")
+			shell("umi_tools dedup -I {input.bamfile2} -S {output.tmpfile2} --extract-umi-method=tag --umi-tag=RX --edit-distance-threshold=1 --paired &>> {log}")
 			shell("""samtools flagstat -@ {threads} {output.tmpfile2} | grep "properly paired" | awk '{{printf "%d\\n", $1}}' >> {output.metrics2}""")
-			shell("""samtools view --threads {threads} -h {output.tmpfile2} 2>> {log} | awk  'BEGIN{{IFS=OFS="\\t"}}{{if($1~/^RX:Z:/){{print $0, "TX:Z:"$3}else{{print}}}}' | samtools sort -n -t "TX" --threads {threads} --output-fmt BAM -o {output.bamfile2} /dev/stdin 2>> {log}""")
+			shell("""samtools view --threads {threads} -h {output.tmpfile2} 2>> {log} | awk  'BEGIN{{IFS=OFS="\\t"}}{{if($1~/^RX:Z:/){{print $0, "TX:Z:"$3}else{{print}}}}' | samtools sort -n -t "TX" --threads {threads} --output-fmt BAM -o {output.bamfile2} /dev/stdin &>> {log}""")
 			# shell("mv {output.metrics2}_per_umi_per_position.tsv {output.metrics2}")
 		else:
-			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile2} O={output.bamfile2} M={output.metrics2} {params.basic} >> {log}")
-		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile2} O={output.index2}")
+			shell("java -Xmx12G -jar {input.exe} MarkDuplicates I={input.bamfile2} O={output.bamfile2} M={output.metrics2} {params.basic} &> {log}")
+		shell("java -Xmx12G -jar {input.exe} BuildBamIndex I={output.bamfile2} O={output.index2} &>> {log}")
 
 def create_bigWig(exe_path, stdfile, bamfile, chrmlen, bedlist, biglist, bedg, bigw, btparam):
 	shell(" ".join(("genomeCoverageBed -bg -split", btparam, "-strand + -ibam", bamfile, "| LC_COLLATE=C sort -k1,1 -k2,2n >", bedlist[0])))
@@ -832,7 +847,7 @@ rule quantification_PE:
 rule metrics:
 	input:
 		trimmed=expand(RESULTS_PATH+"/logs/trim_galore/{}_{}.fq.gz_trimming_report.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
-		ribosomal=expand(RESULTS_PATH+"/logs/rRNA_tRNA_removed/{}_{}_rRNA_tRNA_removed.log".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
+		ribosomal=expand(RESULTS_PATH+"/rRNA_tRNA_removed/{}_{}_rRNA_tRNA_removed.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		mapped=expand(RESULTS_PATH+"/mapped/{}_{}.Log.final.out".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		strand=expand(RESULTS_PATH+"/mapped/{}_{}.StrandCheck.out.tab".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
 		duplicated=expand(RESULTS_PATH+"/picarded/{}_{}.Aligned.sortedByCoord.txt".format(sample, ext) for sample in config["samples"] for ext in ( ["PE"] if len(config["samples"][sample])==2 else ["SE"] )),
