@@ -19,7 +19,7 @@ __Requirements__
 * [_STAR_](https://github.com/alexdobin/STAR)
 
 Optional:
-* [_UMI-tools_]((https://github.com/CGATOxford/UMI-tools)) (required for deduplication using UMIs)
+* [_UMI-tools_](https://github.com/CGATOxford/UMI-tools) (required for deduplication using UMIs)
 * [_bedtools_](https://bedtools.readthedocs.io) (required for generation of bigWig tracks)
 * [_deepTools_](https://deeptools.readthedocs.io) (required for generation of bigWig tracks)
 
