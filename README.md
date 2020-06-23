@@ -36,13 +36,13 @@ __Run the pipeline__
 You can run the standard workflow (mapping and quantification) using:
 
 ```
-snakemake --configfile=<your config file>
+snakemake --configfile=<your config file> --cores 2
 ```
 
 or you can run the longer version (with trancks and transcriptome assembly) with:
 
 ```
-snakemake --configfile=<your config file> -R all
+snakemake --configfile=<your config file> --cores 2 -R all
 ```
 
 ### Workflow
